@@ -8,25 +8,29 @@ import { ShippingCTA } from "@/features/shipping/components/shipping-cta";
 import Link from "next/link";
 
 export default function ShippingPage() {
-    return (
-        <>
-            <Header />
-            <main className="mx-auto px-6 pb-24 min-h-screen container">
-                {/* Breadcrumbs */}
-                <nav className="py-8">
-                    <ol className="flex space-x-2 font-display text-stone-500 text-xs uppercase tracking-widest">
-                        <li><Link className="hover:text-primary transition-colors" href="/">Home</Link></li>
-                        <li>/</li>
-                        <li className="font-bold text-primary">Shipping & Delivery</li>
-                    </ol>
-                </nav>
+  return (
+    <>
+      <Header />
+      <main className="mx-auto px-6 pb-24 min-h-screen container">
+        {/* Breadcrumbs */}
+        <nav className="py-8">
+          <ol className="flex space-x-2 font-display text-stone-500 text-xs uppercase tracking-widest">
+            <li>
+              <Link className="hover:text-primary transition-colors" href="/">
+                Home
+              </Link>
+            </li>
+            <li>/</li>
+            <li className="font-bold text-primary">Shipping & Delivery</li>
+          </ol>
+        </nav>
 
-                <ShippingHero />
-                <ShippingJourney />
-                <ShippingPolicies />
-                <ShippingCTA />
-            </main>
-            <Footer />
-        </>
-    );
+        <ShippingHero />
+        <ShippingJourney />
+        <ShippingPolicies />
+        <ShippingCTA />
+      </main>
+      <Footer />
+    </>
+  );
 }
