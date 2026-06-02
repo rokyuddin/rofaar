@@ -1,8 +1,0 @@
-<svg width="100" height="120" viewBox="0 0 100 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <g id="symbol">
-    <path d="M50 10C38.9543 10 30 18.9543 30 30V35H70V30C70 18.9543 61.0457 10 50 10ZM35 30C35 21.7157 41.7157 15 50 15C58.2843 15 65 21.7157 65 30V35H35V30Z" fill="#9D4E15"/>
-    <path fill-rule="evenodd" clip-rule="evenodd" d="M15 90V50C15 35 30 25 50 20C70 25 85 35 85 50V90H15ZM32 90H68V55C68 47 60 42 50 39C40 42 32 47 32 55V90Z" fill="#9D4E15"/>
-    <rect x="15" y="95" width="70" height="15" rx="7.5" fill="#9D4E15"/>
-  </g>
-  <title>ROFAAR Symbol</title>
-</svg>

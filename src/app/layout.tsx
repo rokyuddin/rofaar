@@ -1,7 +1,14 @@
 import type { Metadata } from "next";
-import { Noto_Serif, Karla } from "next/font/google";
+import { Noto_Serif, Karla, JetBrains_Mono, Outfit, DM_Sans } from "next/font/google";
 import "./globals.css";
 import { JsonLd } from "@/components/organisms/json-ld";
+import { cn } from "@/lib/utils";
+
+const dmSansHeading = DM_Sans({subsets:['latin'],variable:'--font-heading'});
+
+const outfit = Outfit({subsets:['latin'],variable:'--font-sans'});
+
+const jetbrainsMono = JetBrains_Mono({subsets:['latin'],variable:'--font-mono'});
 
 const notoSerif = Noto_Serif({
   variable: "--font-noto-serif",
@@ -88,7 +95,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" className={cn( jetbrainsMono.variable, "font-sans", outfit.variable, dmSansHeading.variable)}>
       <body
         className={`${notoSerif.variable} ${karla.variable} antialiased`}
         suppressHydrationWarning
