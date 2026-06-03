@@ -1,22 +1,114 @@
 "use client";
 
+import { Heart, LogIn, ShoppingCart, X } from "lucide-react";
 import Link from "next/link";
-import {
-  useWishlist,
-  useRemoveFromWishlist,
-  useMoveToCart,
-} from "@/hooks/use-wishlist";
+import { useSession } from "next-auth/react";
 import { Button } from "@/components/atoms/button";
 import { Card, CardContent } from "@/components/atoms/card";
 import { EmptyState } from "@/components/atoms/empty-state";
 import { PriceDisplay } from "@/components/atoms/price-display";
 import { Skeleton } from "@/components/atoms/skeleton";
-import { Heart, ShoppingCart, X } from "lucide-react";
+import {
+  useMoveToCart,
+  useRemoveFromWishlist,
+  useWishlist,
+} from "@/hooks/use-wishlist";
+import { useCartStore } from "@/stores/cart-store";
+import { useWishlistStore } from "@/stores/wishlist-store";
+
+interface WishlistPageItem {
+  id: string;
+  productId: string;
+  product: {
+    id: string;
+    name: string;
+    slug: string;
+    images: { url: string }[];
+    category: { name: string };
+    price: string;
+    finalPrice: number | null;
+    discountPercentage: number;
+  };
+}
 
 export default function WishlistPage() {
-  const { data: items, isLoading, error: wishlistError, refetch: refetchWishlist } = useWishlist();
-  const removeFromWishlist = useRemoveFromWishlist();
-  const moveToCart = useMoveToCart();
+  const { data: session } = useSession();
+
+  // API wishlist (logged in)
+  const isLoggedIn = !!session;
+  const {
+    data: apiWishlistItems,
+    isLoading: apiLoading,
+    error: wishlistError,
+    refetch: refetchWishlist,
+  } = useWishlist({ enabled: isLoggedIn });
+  const removeFromApiWishlist = useRemoveFromWishlist();
+  const moveToApiCart = useMoveToCart();
+
+  // Zustand wishlist (guest)
+  const guestItems = useWishlistStore((s) => s.items);
+  const guestRemoveItem = useWishlistStore((s) => s.removeItem);
+  const guestAddToCart = useCartStore((s) => s.addItem);
+
+  const isLoading = isLoggedIn ? apiLoading : false;
+  const wishlistErrorState = isLoggedIn ? wishlistError : null;
+
+  // Unified wishlist items
+  const items: WishlistPageItem[] = isLoggedIn
+    ? (apiWishlistItems ?? []).map((item) => ({
+        id: item.id,
+        productId: item.productId,
+        product: {
+          id: item.product.id,
+          name: item.product.name,
+          slug: item.product.slug,
+          images: item.product.images,
+          category: item.product.category,
+          price: item.product.price,
+          finalPrice: item.product.finalPrice,
+          discountPercentage: item.product.discountPercentage,
+        },
+      }))
+    : guestItems.map((item) => ({
+        id: item.productId,
+        productId: item.productId,
+        product: {
+          id: item.product.id,
+          name: item.product.name,
+          slug: item.product.slug,
+          images: item.product.images,
+          category: item.product.category,
+          price: item.product.price,
+          finalPrice: item.product.finalPrice,
+          discountPercentage: item.product.discountPercentage,
+        },
+      }));
+
+  const handleRemove = (productId: string) => {
+    if (isLoggedIn) {
+      const apiItem = apiWishlistItems?.find((i) => i.productId === productId);
+      if (apiItem) {
+        removeFromApiWishlist.mutate(apiItem.id);
+      }
+    } else {
+      guestRemoveItem(productId);
+    }
+  };
+
+  const handleMoveToCart = (item: WishlistPageItem) => {
+    if (isLoggedIn) {
+      const apiItem = apiWishlistItems?.find(
+        (i) => i.productId === item.productId,
+      );
+      if (apiItem) {
+        moveToApiCart.mutate(apiItem.id);
+      }
+    } else {
+      // Guest: remove from wishlist store, add to cart store
+      guestRemoveItem(item.productId);
+      guestAddToCart(item.product, 1);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -31,7 +123,7 @@ export default function WishlistPage() {
     );
   }
 
-  if (wishlistError) {
+  if (wishlistErrorState) {
     return (
       <div className="flex min-h-[50vh] flex-col items-center justify-center px-4">
         <div className="mx-auto max-w-lg text-center">
@@ -50,7 +142,11 @@ export default function WishlistPage() {
             again or continue shopping.
           </p>
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-            <Button onClick={() => refetchWishlist()} size="lg" className="gap-2">
+            <Button
+              onClick={() => refetchWishlist()}
+              size="lg"
+              className="gap-2"
+            >
               Try Again
             </Button>
             <Button asChild variant="outline" size="lg" className="gap-2">
@@ -75,6 +171,22 @@ export default function WishlistPage() {
 
   return (
     <div className="space-y-4">
+      {/* Guest login banner */}
+      {!isLoggedIn && (
+        <div className="flex items-center justify-between rounded-none border border-border bg-muted/50 p-4">
+          <div className="flex items-center gap-3">
+            <LogIn className="size-5 text-muted-foreground" />
+            <p className="text-sm">
+              <span className="font-medium">Sign in</span> to save your wishlist
+              permanently.
+            </p>
+          </div>
+          <Button asChild variant="outline" size="sm" className="rounded-none">
+            <Link href="/login">Sign In</Link>
+          </Button>
+        </div>
+      )}
+
       <h2 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
         My Wishlist ({items.length})
       </h2>
@@ -96,8 +208,8 @@ export default function WishlistPage() {
                 variant="ghost"
                 size="icon-xs"
                 className="absolute top-2 right-2 bg-background/80 text-muted-foreground hover:text-destructive"
-                onClick={() => removeFromWishlist.mutate(item.id)}
-                disabled={removeFromWishlist.isPending}
+                onClick={() => handleRemove(item.productId)}
+                disabled={isLoggedIn ? removeFromApiWishlist.isPending : false}
               >
                 <X className="size-3" />
               </Button>
@@ -124,8 +236,8 @@ export default function WishlistPage() {
                 variant="outline"
                 size="sm"
                 className="w-full rounded-none"
-                onClick={() => moveToCart.mutate(item.id)}
-                disabled={moveToCart.isPending}
+                onClick={() => handleMoveToCart(item)}
+                disabled={isLoggedIn ? moveToApiCart.isPending : false}
               >
                 <ShoppingCart className="mr-1.5 size-3" />
                 Move to Cart

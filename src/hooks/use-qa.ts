@@ -5,7 +5,12 @@ import type { Question } from "@/types/api";
 export function useProductQuestions(productId: string) {
   return useQuery<Question[]>({
     queryKey: ["questions", productId],
-    queryFn: () => apiClient.get(`/qa/product/${productId}`),
+    queryFn: async () => {
+      const { data } = await apiClient.get<{ data: Question[] }>(
+        `/qa/product/${productId}`,
+      );
+      return data.data ?? [];
+    },
     enabled: !!productId,
   });
 }

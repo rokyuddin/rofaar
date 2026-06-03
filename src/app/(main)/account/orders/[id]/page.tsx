@@ -49,7 +49,12 @@ export default function OrderDetailPage({
 
 function OrderDetailPageInner({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const { data: order, isLoading, error: orderError, refetch: refetchOrder } = useOrderDetail(id);
+  const {
+    data: order,
+    isLoading,
+    error: orderError,
+    refetch: refetchOrder,
+  } = useOrderDetail(id);
   const { data: tracking } = useTrackOrder(id);
   const cancelOrder = useCancelOrder();
 
@@ -78,7 +83,8 @@ function OrderDetailPageInner({ params }: { params: Promise<{ id: string }> }) {
             Order Not Found
           </h1>
           <p className="mb-8 text-base leading-relaxed text-muted-foreground">
-            We couldn't locate this order. It may have been removed or you may not have permission to view it.
+            We couldn't locate this order. It may have been removed or you may
+            not have permission to view it.
           </p>
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
             <Button onClick={() => refetchOrder()} size="lg" className="gap-2">

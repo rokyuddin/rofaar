@@ -1,49 +1,50 @@
 "use client";
 
-import { Suspense, use, useState } from "react";
+import { Heart, MessageCircle, ShoppingCart, Star } from "lucide-react";
 import Link from "next/link";
-import {
-  Star,
-  Heart,
-  ChevronRight,
-  ShoppingCart,
-  MessageCircle,
-} from "lucide-react";
-import { useProductBySlug, useRelatedProducts } from "@/hooks/use-products";
-import { useAddToCart } from "@/hooks/use-cart";
-import { useProductReviews, useWriteReview } from "@/hooks/use-reviews";
-import { useProductQuestions, useAskQuestion } from "@/hooks/use-qa";
-import { useAddToWishlist } from "@/hooks/use-wishlist";
-import {
-  ProductNotFound,
-  ProductLoadError,
-} from "@/components/molecules/product-error";
+import { useSession } from "next-auth/react";
+import { Suspense, use, useState } from "react";
+import { Badge } from "@/components/atoms/badge";
 import {
   Breadcrumb,
-  BreadcrumbList,
   BreadcrumbItem,
   BreadcrumbLink,
+  BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/atoms/breadcrumb";
+import { Button } from "@/components/atoms/button";
 import {
   Card,
   CardContent,
   CardHeader,
   CardTitle,
 } from "@/components/atoms/card";
+import { QuantityInput } from "@/components/atoms/quantity-input";
+import { Skeleton } from "@/components/atoms/skeleton";
 import {
   Tabs,
+  TabsContent,
   TabsList,
   TabsTrigger,
-  TabsContent,
 } from "@/components/atoms/tabs";
-import { Button } from "@/components/atoms/button";
 import { Textarea } from "@/components/atoms/textarea";
-import { Badge } from "@/components/atoms/badge";
-import { Skeleton } from "@/components/atoms/skeleton";
-import { QuantityInput } from "@/components/atoms/quantity-input";
-import { Product } from "@/types/api";
+import {
+  ProductLoadError,
+  ProductNotFound,
+} from "@/components/molecules/product-error";
+import { useAddToCart } from "@/hooks/use-cart";
+import { useProductBySlug, useRelatedProducts } from "@/hooks/use-products";
+import { useAskQuestion, useProductQuestions } from "@/hooks/use-qa";
+import { useProductReviews, useWriteReview } from "@/hooks/use-reviews";
+import {
+  useAddToWishlist,
+  useRemoveFromWishlist,
+  useWishlist,
+} from "@/hooks/use-wishlist";
+import { useCartStore } from "@/stores/cart-store";
+import { useWishlistStore } from "@/stores/wishlist-store";
+import type { Product } from "@/types/api";
 
 function StarRating({ rating, size = 16 }: { rating: number; size?: number }) {
   return (
@@ -164,12 +165,11 @@ function ProductDetailPageInner({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = use(params);
+  const { data: session } = useSession();
   const [quantity, setQuantity] = useState(1);
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState("");
   const [questionText, setQuestionText] = useState("");
-
-  console.log({ slug });
 
   const {
     data: product,
@@ -177,17 +177,28 @@ function ProductDetailPageInner({
     error: productError,
     refetch: refetchProduct,
   } = useProductBySlug(slug);
-  const { data: relatedData, isLoading: relatedLoading } = useRelatedProducts(
-    product?.id ?? "",
-  );
+  const { data: relatedData } = useRelatedProducts(product?.id ?? "");
   const { data: reviews = [], isLoading: reviewsLoading } = useProductReviews(
     product?.id ?? "",
   );
   const { data: questions = [], isLoading: questionsLoading } =
     useProductQuestions(product?.id ?? "");
 
-  const addToCart = useAddToCart();
-  const addToWishlist = useAddToWishlist();
+  const isLoggedIn = !!session;
+
+  // Cart: API for logged-in, Zustand for guest
+  const addToCartApi = useAddToCart();
+  const guestAddToCart = useCartStore((s) => s.addItem);
+
+  // Wishlist: API for logged-in, Zustand for guest
+  const { data: apiWishlistItems } = useWishlist({ enabled: isLoggedIn });
+  const addToWishlistApi = useAddToWishlist();
+  const removeFromWishlistApi = useRemoveFromWishlist();
+  const guestWishlistHasItem = useWishlistStore((s) =>
+    product ? s.items.some((item) => item.productId === product.id) : false,
+  );
+  const guestWishlistToggle = useWishlistStore((s) => s.toggleItem);
+
   const writeReview = useWriteReview();
   const askQuestion = useAskQuestion();
 
@@ -201,12 +212,33 @@ function ProductDetailPageInner({
   const originalPrice = Number(product.price);
   const hasDiscount = product.discountPercentage > 0;
 
+  const isInWishlist = isLoggedIn
+    ? (apiWishlistItems ?? []).some((item) => item.productId === product.id)
+    : guestWishlistHasItem;
+
   const handleAddToCart = () => {
-    addToCart.mutate({ productId: product.id, quantity });
+    if (isLoggedIn) {
+      addToCartApi.mutate({ productId: product.id, quantity });
+    } else {
+      guestAddToCart(product, quantity);
+    }
   };
 
-  const handleAddToWishlist = () => {
-    addToWishlist.mutate(product.id);
+  const handleWishlistToggle = () => {
+    if (isLoggedIn) {
+      if (isInWishlist) {
+        const apiItem = apiWishlistItems?.find(
+          (i) => i.productId === product.id,
+        );
+        if (apiItem) {
+          removeFromWishlistApi.mutate(apiItem.id);
+        }
+      } else {
+        addToWishlistApi.mutate(product.id);
+      }
+    } else {
+      guestWishlistToggle(product);
+    }
   };
 
   const handleWriteReview = () => {
@@ -322,7 +354,7 @@ function ProductDetailPageInner({
             {/* Price */}
             <div className="flex items-baseline gap-3">
               <span className="text-2xl font-bold">
-                ৳{product.finalPrice.toLocaleString()}
+                ৳{(product.finalPrice ?? originalPrice).toLocaleString()}
               </span>
               {hasDiscount && (
                 <>
@@ -365,11 +397,17 @@ function ProductDetailPageInner({
               <Button
                 size="lg"
                 onClick={handleAddToCart}
-                disabled={addToCart.isPending || product.stock === 0}
+                disabled={
+                  isLoggedIn
+                    ? addToCartApi.isPending
+                    : false || product.stock === 0
+                }
                 className="flex-1 gap-2"
               >
                 <ShoppingCart size={16} />
-                {addToCart.isPending ? "Adding..." : "Add to Cart"}
+                {isLoggedIn && addToCartApi.isPending
+                  ? "Adding..."
+                  : "Add to Cart"}
               </Button>
             </div>
 
@@ -377,12 +415,27 @@ function ProductDetailPageInner({
             <Button
               variant="outline"
               size="lg"
-              onClick={handleAddToWishlist}
-              disabled={addToWishlist.isPending}
+              onClick={handleWishlistToggle}
+              disabled={
+                isLoggedIn
+                  ? addToWishlistApi.isPending ||
+                    removeFromWishlistApi.isPending
+                  : false
+              }
               className="gap-2"
             >
-              <Heart size={16} />
-              {addToWishlist.isPending ? "Adding..." : "Add to Wishlist"}
+              <Heart
+                size={16}
+                className={
+                  isInWishlist ? "fill-destructive text-destructive" : ""
+                }
+              />
+              {isLoggedIn &&
+              (addToWishlistApi.isPending || removeFromWishlistApi.isPending)
+                ? "Updating..."
+                : isInWishlist
+                  ? "Remove from Wishlist"
+                  : "Add to Wishlist"}
             </Button>
           </div>
         </div>
@@ -678,7 +731,10 @@ function ProductDetailPageInner({
                     </span>
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-bold">
-                        ৳{item.finalPrice.toLocaleString()}
+                        ৳
+                        {(
+                          item.finalPrice ?? Number(item.price)
+                        ).toLocaleString()}
                       </span>
                       {item.discountPercentage > 0 && (
                         <span className="text-xs text-muted-foreground line-through">

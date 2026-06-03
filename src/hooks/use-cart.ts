@@ -15,7 +15,10 @@ export interface UpdateCartPayload {
 export function useCart() {
   return useQuery<CartItem[]>({
     queryKey: ["cart"],
-    queryFn: () => apiClient.get("/cart"),
+    queryFn: async () => {
+      const { data } = await apiClient.get<{ data: CartItem[] }>("/cart");
+      return data.data ?? [];
+    },
   });
 }
 

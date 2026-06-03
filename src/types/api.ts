@@ -170,6 +170,13 @@ export interface OrderTracking {
   history: OrderHistoryEntry[];
 }
 
+// ─── Counts ──────────────────────────────────────────────────────────────────
+
+export interface Counts {
+  cart: number;
+  wishlist: number;
+}
+
 // ─── Wishlist ────────────────────────────────────────────────────────────────
 
 export interface WishlistItem {

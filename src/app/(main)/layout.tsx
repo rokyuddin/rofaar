@@ -1,5 +1,6 @@
-import { Navbar } from "@/components/organisms/navbar";
+import { StoreHydrator } from "@/components/molecules/store-hydrator";
 import { Footer } from "@/components/organisms/footer";
+import { Navbar } from "@/components/organisms/navbar";
 
 export default function MainLayout({
   children,
@@ -8,6 +9,7 @@ export default function MainLayout({
 }) {
   return (
     <div className="flex min-h-screen flex-col">
+      <StoreHydrator />
       <Navbar />
       <main className="flex-1">{children}</main>
       <Footer />

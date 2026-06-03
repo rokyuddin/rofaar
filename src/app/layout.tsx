@@ -2,11 +2,11 @@
 
 import type { Metadata } from "next";
 import {
-  Noto_Serif,
-  Karla,
-  JetBrains_Mono,
-  Outfit,
   DM_Sans,
+  JetBrains_Mono,
+  Karla,
+  Noto_Serif,
+  Outfit,
 } from "next/font/google";
 import "./globals.css";
 import { JsonLd } from "@/components/organisms/json-ld";
@@ -115,11 +115,12 @@ export const metadata: Metadata = {
   manifest: "/site.webmanifest",
 };
 
+import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { Toaster } from "sonner";
 import { TooltipProvider } from "@/components/atoms/tooltip";
+import { LoginPromptProvider } from "@/providers/login-prompt-provider";
 import { QueryProvider } from "@/providers/query-provider";
 import { SessionProvider } from "@/providers/session-provider";
-import { NuqsAdapter } from "nuqs/adapters/next/app";
 
 export default async function RootLayout({
   children,
@@ -144,9 +145,11 @@ export default async function RootLayout({
           <QueryProvider>
             <NuqsAdapter>
               <TooltipProvider>
-                <JsonLd />
-                {children}
-                <Toaster position="top-center" richColors />
+                <LoginPromptProvider>
+                  <JsonLd />
+                  {children}
+                  <Toaster position="top-center" richColors />
+                </LoginPromptProvider>
               </TooltipProvider>
             </NuqsAdapter>
           </QueryProvider>
