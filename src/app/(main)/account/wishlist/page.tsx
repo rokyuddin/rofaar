@@ -15,20 +15,12 @@ import {
 } from "@/hooks/use-wishlist";
 import { useCartStore } from "@/stores/cart-store";
 import { useWishlistStore } from "@/stores/wishlist-store";
+import type { Product } from "@/types/api";
 
 interface WishlistPageItem {
   id: string;
   productId: string;
-  product: {
-    id: string;
-    name: string;
-    slug: string;
-    images: { url: string }[];
-    category: { name: string };
-    price: string;
-    finalPrice: number | null;
-    discountPercentage: number;
-  };
+  product: Product;
 }
 
 export default function WishlistPage() {
@@ -58,30 +50,12 @@ export default function WishlistPage() {
     ? (apiWishlistItems ?? []).map((item) => ({
         id: item.id,
         productId: item.productId,
-        product: {
-          id: item.product.id,
-          name: item.product.name,
-          slug: item.product.slug,
-          images: item.product.images,
-          category: item.product.category,
-          price: item.product.price,
-          finalPrice: item.product.finalPrice,
-          discountPercentage: item.product.discountPercentage,
-        },
+        product: item.product,
       }))
     : guestItems.map((item) => ({
         id: item.productId,
         productId: item.productId,
-        product: {
-          id: item.product.id,
-          name: item.product.name,
-          slug: item.product.slug,
-          images: item.product.images,
-          category: item.product.category,
-          price: item.product.price,
-          finalPrice: item.product.finalPrice,
-          discountPercentage: item.product.discountPercentage,
-        },
+        product: item.product,
       }));
 
   const handleRemove = (productId: string) => {
