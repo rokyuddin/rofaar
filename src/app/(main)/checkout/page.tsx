@@ -1,26 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import {
+  Check,
+  ChevronDown,
+  ChevronUp,
+  CreditCard,
+  LogIn,
+  MapPin,
+  Plus,
+  Truck,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCart } from "@/hooks/use-cart";
-import { useAddresses, useCreateAddress } from "@/hooks/use-addresses";
-import { useShippingZones } from "@/hooks/use-shipping";
-import { usePlaceOrder } from "@/hooks/use-orders";
-import { Button } from "@/components/atoms/button";
-import { Input } from "@/components/atoms/input";
-import { Label } from "@/components/atoms/label";
-import { Textarea } from "@/components/atoms/textarea";
-import { Separator } from "@/components/atoms/separator";
-import { Skeleton } from "@/components/atoms/skeleton";
-import { RadioGroup, RadioGroupItem } from "@/components/atoms/radio-group";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/atoms/dialog";
+import { useSession } from "next-auth/react";
+import { useState } from "react";
+import { z } from "zod";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -29,19 +23,63 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/atoms/breadcrumb";
-import type { Address, ShippingMethod } from "@/types/api";
+import { Button } from "@/components/atoms/button";
 import {
-  MapPin,
-  Truck,
-  CreditCard,
-  Check,
-  Plus,
-  ChevronDown,
-  ChevronUp,
-} from "lucide-react";
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/atoms/dialog";
+import { Input } from "@/components/atoms/input";
+import { Label } from "@/components/atoms/label";
+import { RadioGroup, RadioGroupItem } from "@/components/atoms/radio-group";
+import { Separator } from "@/components/atoms/separator";
+import { Skeleton } from "@/components/atoms/skeleton";
+import { Textarea } from "@/components/atoms/textarea";
+import { useAddresses, useCreateAddress } from "@/hooks/use-addresses";
+import { useCart } from "@/hooks/use-cart";
+import { usePlaceOrder } from "@/hooks/use-orders";
+import { useShippingZones } from "@/hooks/use-shipping";
+import { useCheckoutStore } from "@/stores/checkout-store";
+import type { ShippingMethod } from "@/types/api";
+
+const newAddressSchema = z.object({
+  recipientName: z.string().min(1, "Recipient name is required"),
+  phone: z
+    .string()
+    .min(1, "Phone is required")
+    .regex(/^01[3-9]\d{8}$/, "Enter a valid Bangladeshi phone number"),
+  altPhone: z
+    .string()
+    .regex(/^01[3-9]\d{8}$/, "Enter a valid Bangladeshi phone number")
+    .optional()
+    .or(z.literal("")),
+  address: z.string().min(1, "Address is required"),
+  city: z.string().min(1, "City is required"),
+  area: z.string().min(1, "Area is required"),
+  label: z.enum(["Home", "Office", "Other"]),
+  isDefault: z.boolean(),
+});
+
+type NewAddressInput = z.infer<typeof newAddressSchema>;
+
+const emptyNewAddress: NewAddressInput = {
+  recipientName: "",
+  phone: "",
+  altPhone: "",
+  address: "",
+  city: "",
+  area: "",
+  label: "Home",
+  isDefault: false,
+};
 
 export default function CheckoutPage() {
   const router = useRouter();
+  const { status } = useSession();
+  const isAuthenticated = status === "authenticated";
+
   const {
     data: cartItems,
     isLoading: cartLoading,
@@ -52,6 +90,8 @@ export default function CheckoutPage() {
   const { data: shippingData, isLoading: shippingLoading } = useShippingZones();
   const placeOrder = usePlaceOrder();
   const createAddress = useCreateAddress();
+  const appliedCoupon = useCheckoutStore((s) => s.coupon);
+  const clearCoupon = useCheckoutStore((s) => s.clearCoupon);
 
   const [selectedAddressId, setSelectedAddressId] = useState<string>("");
   const [selectedShippingMethod, setSelectedShippingMethod] =
@@ -61,49 +101,45 @@ export default function CheckoutPage() {
     "address" | "shipping" | "payment"
   >("address");
   const [showNewAddressDialog, setShowNewAddressDialog] = useState(false);
-  const [newAddress, setNewAddress] = useState({
-    recipientName: "",
-    phone: "",
-    altPhone: "",
-    address: "",
-    city: "",
-    area: "",
-    label: "Home",
-    isDefault: false,
-  });
+  const [newAddress, setNewAddress] =
+    useState<NewAddressInput>(emptyNewAddress);
+  const [newAddressErrors, setNewAddressErrors] = useState<
+    Partial<Record<keyof NewAddressInput, string>>
+  >({});
 
   const subtotal =
     cartItems?.reduce(
       (sum, item) => sum + Number(item.price) * item.quantity,
       0,
     ) ?? 0;
+  const discount = appliedCoupon?.discount ?? 0;
 
-  const shippingZone = shippingData?.data?.[0];
+  const activeZone = shippingData?.data?.find((z) => z.isActive);
   const shippingMethods: ShippingMethod[] =
-    shippingZone?.methods?.filter((m: ShippingMethod) => m.isActive) ?? [];
+    activeZone?.methods?.filter((m) => m.isActive) ?? [];
   const selectedMethod = shippingMethods.find(
-    (m: ShippingMethod) => m.id === selectedShippingMethod,
+    (m) => m.id === selectedShippingMethod,
   );
   const shippingCost = selectedMethod ? Number(selectedMethod.cost) : 0;
-  const total = subtotal + shippingCost;
-
-  const selectedAddress = addresses?.find((a) => a.id === selectedAddressId);
+  const total = Math.max(0, subtotal - discount + shippingCost);
 
   const handleCreateAddress = () => {
-    createAddress.mutate(newAddress, {
+    const result = newAddressSchema.safeParse(newAddress);
+    if (!result.success) {
+      const fieldErrors: Partial<Record<keyof NewAddressInput, string>> = {};
+      for (const issue of result.error.issues) {
+        const key = issue.path[0] as keyof NewAddressInput | undefined;
+        if (key && !fieldErrors[key]) fieldErrors[key] = issue.message;
+      }
+      setNewAddressErrors(fieldErrors);
+      return;
+    }
+    setNewAddressErrors({});
+    createAddress.mutate(result.data, {
       onSuccess: (created) => {
         setSelectedAddressId(created.data.id);
         setShowNewAddressDialog(false);
-        setNewAddress({
-          recipientName: "",
-          phone: "",
-          altPhone: "",
-          address: "",
-          city: "",
-          area: "",
-          label: "Home",
-          isDefault: false,
-        });
+        setNewAddress(emptyNewAddress);
       },
     });
   };
@@ -114,15 +150,70 @@ export default function CheckoutPage() {
       {
         addressId: selectedAddressId,
         paymentMethod,
-        couponCode: undefined,
+        couponCode: appliedCoupon?.code,
       },
       {
         onSuccess: (order) => {
+          clearCoupon();
           router.push(`/orders/${order.data.id}/confirmation`);
         },
       },
     );
   };
+
+  if (status === "loading") {
+    return (
+      <div className="min-h-screen">
+        <div className="container mx-auto px-4 py-8">
+          <Skeleton className="mb-8 h-6 w-48 rounded-none" />
+          <Skeleton className="mb-4 h-8 w-48 rounded-none" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen">
+        <div className="container mx-auto px-4 py-8">
+          <Breadcrumb className="mb-8">
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink href="/">Home</BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>Checkout</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+
+          <div className="flex min-h-[50vh] flex-col items-center justify-center px-4">
+            <div className="mx-auto max-w-lg text-center">
+              <LogIn className="mx-auto mb-6 size-12 text-muted-foreground" />
+              <h1 className="mb-4 text-3xl font-bold font-heading text-foreground">
+                Sign in to check out
+              </h1>
+              <p className="mb-8 text-base leading-relaxed text-muted-foreground">
+                You need an account to place an order. Sign in or create one —
+                it only takes a moment.
+              </p>
+              <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
+                <Button asChild size="lg" className="gap-2">
+                  <Link href="/login?redirect=/checkout">Sign In</Link>
+                </Button>
+                <Button asChild variant="outline" size="lg" className="gap-2">
+                  <Link href="/register?redirect=/checkout">
+                    Create Account
+                  </Link>
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const isLoading = cartLoading || addressesLoading || shippingLoading;
 
@@ -317,7 +408,12 @@ export default function CheckoutPage() {
                     ))}
 
                     <button
-                      onClick={() => setShowNewAddressDialog(true)}
+                      type="button"
+                      onClick={() => {
+                        setNewAddress(emptyNewAddress);
+                        setNewAddressErrors({});
+                        setShowNewAddressDialog(true);
+                      }}
                       className="flex w-full items-center justify-center gap-2 border border-dashed border-border p-4 text-xs font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary"
                     >
                       <Plus className="size-4" />
@@ -342,38 +438,45 @@ export default function CheckoutPage() {
               isCompleted={!!selectedShippingMethod}
               disabled={!selectedAddressId}
             >
-              <RadioGroup
-                value={selectedShippingMethod}
-                onValueChange={(value) => {
-                  setSelectedShippingMethod(value);
-                  setExpandedSection("payment");
-                }}
-                className="space-y-3"
-              >
-                {shippingMethods.map((method: ShippingMethod) => (
-                  <label
-                    key={method.id}
-                    className={`flex cursor-pointer items-center justify-between border p-4 transition-colors ${
-                      selectedShippingMethod === method.id
-                        ? "border-primary bg-primary/5"
-                        : "hover:border-muted-foreground/30"
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <RadioGroupItem value={method.id} />
-                      <div>
-                        <p className="text-sm font-medium">{method.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {method.estimatedDays} business days
-                        </p>
+              {shippingMethods.length === 0 ? (
+                <p className="text-xs text-muted-foreground">
+                  No shipping methods are available right now. Please contact
+                  support.
+                </p>
+              ) : (
+                <RadioGroup
+                  value={selectedShippingMethod}
+                  onValueChange={(value) => {
+                    setSelectedShippingMethod(value);
+                    setExpandedSection("payment");
+                  }}
+                  className="space-y-3"
+                >
+                  {shippingMethods.map((method) => (
+                    <label
+                      key={method.id}
+                      className={`flex cursor-pointer items-center justify-between border p-4 transition-colors ${
+                        selectedShippingMethod === method.id
+                          ? "border-primary bg-primary/5"
+                          : "hover:border-muted-foreground/30"
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <RadioGroupItem value={method.id} />
+                        <div>
+                          <p className="text-sm font-medium">{method.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {method.estimatedDays} business days
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                    <span className="text-sm font-bold">
-                      &#৳;{Number(method.cost).toLocaleString()}
-                    </span>
-                  </label>
-                ))}
-              </RadioGroup>
+                      <span className="text-sm font-bold">
+                        &#৳;{Number(method.cost).toLocaleString()}
+                      </span>
+                    </label>
+                  ))}
+                </RadioGroup>
+              )}
             </CheckoutSection>
 
             {/* Payment Section */}
@@ -476,6 +579,14 @@ export default function CheckoutPage() {
                     &#৳;{subtotal.toLocaleString()}
                   </span>
                 </div>
+                {discount > 0 && (
+                  <div className="flex justify-between text-green-600">
+                    <span>Discount ({appliedCoupon?.code})</span>
+                    <span className="font-medium">
+                      -&#৳;{discount.toLocaleString()}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Shipping</span>
                   <span className="font-medium">
@@ -519,7 +630,10 @@ export default function CheckoutPage() {
       {/* New Address Dialog */}
       <Dialog
         open={showNewAddressDialog}
-        onOpenChange={setShowNewAddressDialog}
+        onOpenChange={(open) => {
+          setShowNewAddressDialog(open);
+          if (!open) setNewAddressErrors({});
+        }}
       >
         <DialogContent className="rounded-none sm:max-w-md">
           <DialogHeader>
@@ -532,7 +646,10 @@ export default function CheckoutPage() {
                 <select
                   value={newAddress.label}
                   onChange={(e) =>
-                    setNewAddress({ ...newAddress, label: e.target.value })
+                    setNewAddress({
+                      ...newAddress,
+                      label: e.target.value as NewAddressInput["label"],
+                    })
                   }
                   className="h-8 w-full rounded-none border border-input bg-transparent px-2.5 text-xs outline-none focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring/50"
                 >
@@ -554,6 +671,11 @@ export default function CheckoutPage() {
                   placeholder="Full name"
                   className="rounded-none"
                 />
+                {newAddressErrors.recipientName && (
+                  <p className="text-[10px] text-destructive">
+                    {newAddressErrors.recipientName}
+                  </p>
+                )}
               </div>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
@@ -567,6 +689,11 @@ export default function CheckoutPage() {
                   placeholder="01XXXXXXXXX"
                   className="rounded-none"
                 />
+                {newAddressErrors.phone && (
+                  <p className="text-[10px] text-destructive">
+                    {newAddressErrors.phone}
+                  </p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label>Alt Phone (optional)</Label>
@@ -578,6 +705,11 @@ export default function CheckoutPage() {
                   placeholder="01XXXXXXXXX"
                   className="rounded-none"
                 />
+                {newAddressErrors.altPhone && (
+                  <p className="text-[10px] text-destructive">
+                    {newAddressErrors.altPhone}
+                  </p>
+                )}
               </div>
             </div>
             <div className="space-y-1.5">
@@ -590,6 +722,11 @@ export default function CheckoutPage() {
                 placeholder="House No, Road, Street, Building..."
                 className="rounded-none"
               />
+              {newAddressErrors.address && (
+                <p className="text-[10px] text-destructive">
+                  {newAddressErrors.address}
+                </p>
+              )}
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-1.5">
@@ -602,6 +739,11 @@ export default function CheckoutPage() {
                   placeholder="e.g. Dhaka"
                   className="rounded-none"
                 />
+                {newAddressErrors.city && (
+                  <p className="text-[10px] text-destructive">
+                    {newAddressErrors.city}
+                  </p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label>Area</Label>
@@ -613,6 +755,11 @@ export default function CheckoutPage() {
                   placeholder="e.g. Banani"
                   className="rounded-none"
                 />
+                {newAddressErrors.area && (
+                  <p className="text-[10px] text-destructive">
+                    {newAddressErrors.area}
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -627,14 +774,7 @@ export default function CheckoutPage() {
             <Button
               className="rounded-none"
               onClick={handleCreateAddress}
-              disabled={
-                createAddress.isPending ||
-                !newAddress.recipientName ||
-                !newAddress.phone ||
-                !newAddress.address ||
-                !newAddress.city ||
-                !newAddress.area
-              }
+              disabled={createAddress.isPending}
             >
               {createAddress.isPending ? "Saving..." : "Save Address"}
             </Button>
@@ -667,6 +807,7 @@ function CheckoutSection({
   return (
     <div className={`py-6 ${disabled ? "opacity-50 pointer-events-none" : ""}`}>
       <button
+        type="button"
         onClick={onToggle}
         className="flex w-full items-center gap-3 text-left"
         disabled={disabled}

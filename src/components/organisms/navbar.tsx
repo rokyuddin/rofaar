@@ -1,6 +1,5 @@
 "use client";
 
-import { AnimatePresence, motion } from "framer-motion";
 import { Heart, Menu, Search, ShoppingCart, User, X } from "lucide-react";
 import Link from "next/link";
 import { signOut, useSession } from "next-auth/react";
@@ -8,6 +7,9 @@ import { useState } from "react";
 import { Button } from "@/components/atoms/button";
 import { Logo } from "@/components/molecules/logo";
 import { cn } from "@/lib/utils";
+import { useCartStore } from "@/stores/cart-store";
+import { useWishlistStore } from "@/stores/wishlist-store";
+import { useCounts } from "@/hooks/use-counts";
 
 export function Navbar() {
   const { data: session } = useSession();

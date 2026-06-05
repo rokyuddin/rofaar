@@ -1,12 +1,10 @@
 import { Suspense } from "react";
-import { HeroView } from "@/features/landing/components/hero-view";
-import { AdSection } from "@/features/landing/components/ad-section";
-import { CategoryGrid } from "@/features/landing/components/category-grid";
-import { ProductListing } from "@/features/landing/components/product-listing";
-import { Testimonials } from "@/features/landing/components/testimonials";
-import { Newsletter } from "@/features/landing/components/newsletter";
 import { ErrorBoundary } from "react-error-boundary";
 import { ErrorFallback } from "@/components/molecules/error-fallback";
+import { CategoryGrid } from "@/features/landing/components/category-grid";
+import { HeroView } from "@/features/landing/components/hero-view";
+import { NewArrivals } from "@/features/landing/components/new-arrivals";
+import { ProductListing } from "@/features/landing/components/product-listing";
 import { fetchCategories, fetchProducts } from "@/lib/api-server";
 
 export default async function LandingPage() {
@@ -20,10 +18,21 @@ export default async function LandingPage() {
   return (
     <div className="flex flex-col">
       <HeroView />
-      <AdSection />
 
       <ErrorBoundary FallbackComponent={ErrorFallback}>
         <CategoryGrid categories={categoriesRes.data || []} />
+      </ErrorBoundary>
+
+      <ErrorBoundary FallbackComponent={ErrorFallback}>
+        <Suspense
+          fallback={
+            <div className="flex h-[400px] items-center justify-center">
+              Loading new arrivals...
+            </div>
+          }
+        >
+          <NewArrivals limit={5} />
+        </Suspense>
       </ErrorBoundary>
 
       <ErrorBoundary FallbackComponent={ErrorFallback}>
@@ -40,9 +49,6 @@ export default async function LandingPage() {
           />
         </Suspense>
       </ErrorBoundary>
-
-      <Testimonials />
-      <Newsletter />
     </div>
   );
 }

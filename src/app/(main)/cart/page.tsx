@@ -26,6 +26,7 @@ import {
 import { useValidateCoupon } from "@/hooks/use-coupons";
 import { useLoginPrompt } from "@/providers/login-prompt-provider";
 import { useCartStore } from "@/stores/cart-store";
+import { useCheckoutStore } from "@/stores/checkout-store";
 
 interface CartPageItem {
   id: string;
@@ -102,19 +103,20 @@ export default function CartPage() {
       }));
 
   const [couponCode, setCouponCode] = useState("");
-  const [appliedCoupon, setAppliedCoupon] = useState<{
-    code: string;
-    discount: number;
-  } | null>(null);
+
+  const appliedCoupon = useCheckoutStore((s) => s.coupon);
+  const setAppliedCoupon = useCheckoutStore((s) => s.setCoupon);
+  const clearAppliedCoupon = useCheckoutStore((s) => s.clearCoupon);
 
   const subtotal = cartItems.reduce(
     (sum, item) => sum + Number(item.price) * item.quantity,
     0,
   );
-  const shipping = subtotal > 0 ? 120 : 0;
   const discount = appliedCoupon?.discount ?? 0;
-  const total = subtotal + shipping - discount;
+  const total = subtotal - discount;
   const itemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+
+  const validateCoupon = useValidateCoupon();
 
   const handleApplyCoupon = () => {
     if (!couponCode.trim()) return;
@@ -126,7 +128,7 @@ export default function CartPage() {
           setAppliedCoupon({ code: coupon.code, discount: coupon.discount });
         },
         onError: () => {
-          setAppliedCoupon(null);
+          clearAppliedCoupon();
         },
       },
     );
@@ -168,8 +170,6 @@ export default function CartPage() {
       guestClearCart();
     }
   };
-
-  const validateCoupon = useValidateCoupon();
 
   if (isLoading) {
     return (
@@ -447,8 +447,8 @@ export default function CartPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Shipping</span>
-                  <span className="font-medium">
-                    &#৳;{shipping.toLocaleString()}
+                  <span className="font-medium text-muted-foreground">
+                    Calculated at checkout
                   </span>
                 </div>
                 {discount > 0 && (
@@ -497,8 +497,9 @@ export default function CartPage() {
                       &quot;{appliedCoupon.code}&quot; applied
                     </span>
                     <button
+                      type="button"
                       onClick={() => {
-                        setAppliedCoupon(null);
+                        clearAppliedCoupon();
                         setCouponCode("");
                       }}
                       className="text-muted-foreground hover:text-destructive"

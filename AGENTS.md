@@ -1,52 +1,45 @@
 # OpenCode Agent Instructions for rofaar
 
-## Commands
-- `pnpm dev` — dev server (Next.js 16, port 3000)
-- `pnpm lint` — runs `biome check`
-- `pnpm format` — runs `biome format --write`
-- `pnpm build` — production build (`next build`, outputs standalone)
-- `pnpm start` — production server
-- `docker compose up --build` — containerized production build
+## Developer Commands
+- `pnpm dev` — Start the Next.js 16 development server (port 3000)
+- `pnpm lint` — Run Biome check (linter rules + import organizing)
+- `pnpm format` — Format code with Biome (`biome format --write`)
+- `pnpm build` — Build production application (`next build`, standalone output)
+- `pnpm start` — Start the production server
+- `docker compose up --build` — Run containerized production build (pins Node `24.15.0-alpine` and pnpm `10.30.3`)
 
-## Architecture
-- **Next.js 16 App Router** with `cacheComponents: true` and `reactCompiler: true` enabled in `next.config.ts`
-- **Standalone output** (`output: "standalone"`) — production build is self-contained
-- **API proxy**: All `/api/v1/*` requests proxy to `https://api.rofaar.com`. The README mentions a `proxy.ts` but it doesn't exist in `src/app/`; the proxy is handled via Next.js config or middleware. Check `next.config.ts` and `next.config` rewrites if modifying proxy behavior.
-- **Path alias**: `@/*` maps to `./src/*` (tsconfig paths)
+## Architecture & Data Flow
+- **Next.js 16 App Router**: Uses `cacheComponents: true` and `reactCompiler: true` in `next.config.ts`.
+- **Direct API Configuration**: There is no Next.js-level proxy middleware or `proxy.ts`. Client and server make direct calls to `process.env.NEXT_PUBLIC_API_URL` (locally set in `.env.local` to a direct backend like `http://localhost:4000/api/v1`).
+- **Auth**: NextAuth v5 beta (`5.0.0-beta.31`) Credentials provider (phone + password). Configured in `src/lib/auth.ts`.
+- **Client State**: Zustand with local storage persistence manages cart (`src/stores/cart-store.ts`) and wishlist (`src/stores/wishlist-store.ts`).
+- **Path Alias**: `@/*` points to `./src/*`.
 
 ## Source Layout
 ```
 src/
-├── app/(auth)/        # Login, register, forgot-password
-├── app/(main)/        # Public pages (products, cart, account)
-├── app/(legal)/       # Terms, privacy, shipping, help
+├── app/(auth)/        # Login, registration, forgot-password
+├── app/(main)/        # Shop features (landing page, products, cart, checkout, account)
+├── app/(legal)/       # Policy, terms, help pages
 ├── app/api/auth/      # NextAuth route handler
-├── components/atoms/  # shadcn/ui primitives + shared UI
-├── components/molecules/  # Composed components
-├── components/organisms/  # Navbar, footer, header
-├── features/          # Feature modules (landing, product, shipping, help)
-├── hooks/             # TanStack Query hooks (one per API section)
-├── lib/api-client.ts  # Axios client with auth interceptor + 5xx retry
-├── lib/auth.ts        # NextAuth v5 config (phone+password credentials)
-├── providers/         # QueryProvider, SessionProvider
-└── types/api.ts       # Shared API response types
+├── components/atoms/  # shadcn/ui base primitives (aliased via components.json)
+├── components/molecules/ # Shared composed components (e.g., error fallback)
+├── components/organisms/ # Layout shell components (Navbar, Header, Footer)
+├── features/          # Feature widgets and domain-specific views (e.g., landing page features)
+├── hooks/             # TanStack Query v5 hooks (one file per API resource)
+├── lib/               # Shared clients (api-client for client, api-server for cached fetch actions)
+├── providers/         # Global provider wrappers
+└── stores/            # Zustand state stores
 ```
 
-## Key Conventions
-- **Biome only** — no ESLint/Prettier. `noUnknownAtRules` is off (allows `@tailwind` directives). Organize imports via Biome assist.
-- **shadcn/ui v4** — components registered in `components.json`. Use `npx shadcn@latest add <component>` to add. MCP server enabled in `opencode.json`.
-- **TanStack Query v5** for all server state. Hooks live in `src/hooks/`, one per API domain.
-- **@tanstack/react-form** with `@tanstack/zod-form-adapter` and **Zod v4** for validation.
-- **Auth**: NextAuth v5 beta (`5.0.0-beta.31`). Phone+password credentials provider. JWT-based. Session includes `accessToken`. Custom sign-in page at `/login`.
-- **nuqs** for URL search params state management.
-- **framer-motion** for animations.
+## Tooling & Conventions
+- **Biome Linter/Formatter**: No ESLint or Prettier. Organized imports are handled on-save/format via Biome assist. Tailwind `@tailwind` directives are allowed because `noUnknownAtRules` is disabled.
+- **shadcn/ui v4**: Components are registered in `components.json` with style `radix-lyra` and base color `mist`. Added via `npx shadcn@latest add <component>`. Primitives reside in `@/components/atoms` (aliased to `@/components/atoms` in components.json).
+- **Forms & Validation**: Built with `@tanstack/react-form`, Zod v4, and `@tanstack/zod-form-adapter`.
+- **Server Cache**: Server-side fetches in `api-server.ts` utilize `"use cache"` and `cacheTag(...)` for granular Next.js cache invalidations.
 
-## Environment
-- `.env.local` (not committed) with `AUTH_SECRET`, `AUTH_URL`, `BACKEND_URL`, `NEXT_PUBLIC_API_URL=/api/v1`
-- `.env.example` referenced in README but doesn't exist — create it if adding new env vars
-
-## Gotchas
-- React 19.2.3 + `babel-plugin-react-compiler` in devDeps — the React Compiler is active. Components may behave differently than expected with manual memoization.
-- `shadcn` is both a dependency (runtime) and dev tool — version `^4.8.3` is the CLI/registry version.
-- `ignoreScripts` and `trustedDependencies` in package.json include `sharp` and `unrs-resolver` — these have native binaries that may need special handling in CI/Docker.
-- No test framework is configured. If adding tests, check for existing patterns first.
+## Operational Gotchas
+- **Auth Env Var Mapping**: NextAuth config uses `NEXTAUTH_SECRET` but NextAuth v5 beta automatically maps `AUTH_SECRET` from `.env.local` to it. Keep them consistent.
+- **React Compiler**: React 19.2.3 + `babel-plugin-react-compiler` are active. Avoid standard memoization optimization overrides unless necessary.
+- **No Tests**: There is currently no local unit, integration, or E2E test suite configured.
+- **PNPM Native Hoisting**: `.npmrc` has `shamefully-hoist=true` and `auto-install-peers=true` enabled to ensure compatibility with native binaries like `sharp`.

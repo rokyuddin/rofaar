@@ -6,14 +6,14 @@ import { useState } from "react";
 import { Button } from "@/components/atoms/button";
 import { Skeleton } from "@/components/atoms/skeleton";
 import { useInfiniteProducts } from "@/hooks/use-products";
-import type { ApiResponse, Product } from "@/types/api";
+import type { Product } from "@/types/api";
 
-export function ProductListing({
+export function NewArrivalsClient({
   initialProducts,
-  initialPagination,
+  limit = 5,
 }: {
   initialProducts: Product[];
-  initialPagination?: ApiResponse<Product[]>["pagination"];
+  limit?: number;
 }) {
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } =
     useInfiniteProducts({ limit: 20, sort: "newest" });
@@ -25,11 +25,10 @@ export function ProductListing({
       <section className="py-16">
         <div className="container mx-auto px-4">
           <div className="mb-8 flex items-end justify-between">
-            <h2 className="text-3xl font-bold font-heading">Our Products</h2>
+            <h2 className="text-3xl font-bold font-heading">New Arrivals</h2>
           </div>
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-            {[...Array(8)].map((_, i) => (
-              // biome-ignore lint/suspicious/noArrayIndexKey: Skeleton indicators are static placeholders
+            {[...Array(4)].map((_, i) => (
               <div key={i} className="space-y-4">
                 <Skeleton className="aspect-square w-full rounded-sm" />
                 <Skeleton className="h-4 w-1/4" />
@@ -43,17 +42,19 @@ export function ProductListing({
     );
   }
 
+  if (products.length === 0) {
+    return null;
+  }
+
   return (
     <section className="py-16">
       <div className="container mx-auto px-4">
         <div className="mb-8 flex flex-col space-y-4 md:flex-row md:items-end md:justify-between md:space-y-0">
           <div>
-            <h2 className="text-3xl font-bold font-heading">
-              Rofaar Collections
-            </h2>
+            <h2 className="text-3xl font-bold font-heading">New Arrivals</h2>
           </div>
           <Link
-            href="/products"
+            href="/products?sort=newest"
             className="text-sm font-medium underline-offset-4 hover:underline"
           >
             View All
@@ -61,15 +62,12 @@ export function ProductListing({
         </div>
 
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-          {products.map((product) => (
+          {products.slice(0, limit).map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}
         </div>
 
-        {(hasNextPage ||
-          (!data &&
-            initialPagination &&
-            initialPagination.page < initialPagination.totalPages)) && (
+        {hasNextPage && (
           <div className="mt-12 flex justify-center">
             <Button
               variant="outline"
@@ -110,7 +108,6 @@ function ProductCard({ product }: { product: Product }) {
     }
   };
 
-  // Get stock status
   const getStockStatus = () => {
     if (product.stock === 0) {
       return { label: "Out of Stock", class: "text-red-500 bg-red-50" };
@@ -129,19 +126,16 @@ function ProductCard({ product }: { product: Product }) {
 
   return (
     <div className="group relative flex flex-col overflow-hidden rounded-sm border border-border bg-card shadow-sm transition-shadow hover:shadow-md">
-      {/* Floating Discount Badge */}
       {hasDiscount && (
         <span className="absolute top-2.5 left-2.5 z-10 rounded bg-red-500 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
           -{product.discountPercentage}% OFF
         </span>
       )}
 
-      {/* Image / Carousel Section */}
       <Link
         href={`/products/${product.slug}`}
         className="relative block aspect-square overflow-hidden bg-muted"
       >
-        {/* biome-ignore lint/performance/noImgElement: External unsplash images need standard img tag */}
         <img
           src={
             product.images[currentImageIndex]?.url ||
@@ -151,7 +145,6 @@ function ProductCard({ product }: { product: Product }) {
           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-102"
         />
 
-        {/* Carousel Prev/Next Buttons */}
         {hasMultipleImages && (
           <>
             <button
@@ -169,11 +162,9 @@ function ProductCard({ product }: { product: Product }) {
               <ChevronRight className="h-4 w-4" />
             </button>
 
-            {/* Dot indicators */}
             <div className="absolute bottom-2.5 left-1/2 z-10 flex -translate-x-1/2 gap-1 rounded-full bg-black/25 px-2 py-1 opacity-0 transition-opacity group-hover:opacity-100">
               {product.images.map((_, index) => (
                 <button
-                  // biome-ignore lint/suspicious/noArrayIndexKey: Dot indicators are static in size/index
                   key={index}
                   type="button"
                   onClick={(e) => {
@@ -191,15 +182,12 @@ function ProductCard({ product }: { product: Product }) {
         )}
       </Link>
 
-      {/* Details Section */}
       <div className="flex flex-1 flex-col gap-1.5 p-3.5">
-        {/* Brand & Category Info */}
         <div className="flex items-center justify-between text-[10px] font-medium tracking-wider text-muted-foreground uppercase">
           <span>{product.brand?.name || "Brand"}</span>
           <span>{product.category?.name || "Category"}</span>
         </div>
 
-        {/* Product Name */}
         <Link
           href={`/products/${product.slug}`}
           className="line-clamp-2 min-h-[2.5rem] text-sm font-medium leading-snug text-foreground transition-colors hover:text-primary"
@@ -207,7 +195,6 @@ function ProductCard({ product }: { product: Product }) {
           {product.name}
         </Link>
 
-        {/* Pricing Section */}
         <div className="mt-1 flex items-baseline justify-between">
           <div className="flex items-baseline gap-2">
             <span className="text-base font-bold text-orange-600">
@@ -220,7 +207,6 @@ function ProductCard({ product }: { product: Product }) {
             )}
           </div>
 
-          {/* Stock Status Badge */}
           <span
             className={`rounded px-1.5 py-0.5 text-[9px] font-semibold tracking-wider uppercase ${stockStatus.class}`}
           >
