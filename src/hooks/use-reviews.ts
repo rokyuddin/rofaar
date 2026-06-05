@@ -5,7 +5,12 @@ import type { Review } from "@/types/api";
 export function useProductReviews(productId: string) {
   return useQuery<Review[]>({
     queryKey: ["reviews", productId],
-    queryFn: () => apiClient.get(`/reviews/product/${productId}`),
+    queryFn: async () => {
+      const { data } = await apiClient.get<{ data: Review[] }>(
+        `/reviews/product/${productId}`,
+      );
+      return data.data ?? [];
+    },
     enabled: !!productId,
   });
 }

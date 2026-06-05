@@ -1,17 +1,26 @@
 "use client";
 
+import { AnimatePresence, motion } from "framer-motion";
+import { Heart, Menu, Search, ShoppingCart, User, X } from "lucide-react";
 import Link from "next/link";
-import { useSession, signOut } from "next-auth/react";
-import { ShoppingCart, User, Search, Menu, X } from "lucide-react";
+import { signOut, useSession } from "next-auth/react";
 import { useState } from "react";
 import { Button } from "@/components/atoms/button";
 import { Logo } from "@/components/molecules/logo";
-import { cn } from "@/lib/utils";
-import { motion, AnimatePresence } from "framer-motion";
+import { useCounts } from "@/hooks/use-counts";
+import { useCartStore } from "@/stores/cart-store";
+import { useWishlistStore } from "@/stores/wishlist-store";
 
 export function Navbar() {
   const { data: session } = useSession();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  // Cart & Wishlist count: API for logged in, Zustand for guest
+  const { data: counts } = useCounts();
+  const guestCartCount = useCartStore((s) => s.items.length);
+  const guestWishlistCount = useWishlistStore((s) => s.items.length);
+  const cartCount = session ? (counts?.cart ?? 0) : guestCartCount;
+  const wishlistCount = session ? (counts?.wishlist ?? 0) : guestWishlistCount;
 
   const navLinks = [
     { name: "Shop All", href: "/products" },
@@ -88,9 +97,24 @@ export function Navbar() {
 
             <Link href="/cart" className="relative" aria-label="Cart">
               <ShoppingCart className="size-5" />
-              <span className="absolute -right-2 -top-2 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">
-                0
-              </span>
+              {cartCount > 0 && (
+                <span className="absolute -right-2 -top-2 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">
+                  {cartCount > 99 ? "99+" : cartCount}
+                </span>
+              )}
+            </Link>
+
+            <Link
+              href="/account/wishlist"
+              className="relative"
+              aria-label="Wishlist"
+            >
+              <Heart className="size-5" />
+              {wishlistCount > 0 && (
+                <span className="absolute -right-2 -top-2 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[10px] text-primary-foreground">
+                  {wishlistCount > 99 ? "99+" : wishlistCount}
+                </span>
+              )}
             </Link>
           </div>
         </div>

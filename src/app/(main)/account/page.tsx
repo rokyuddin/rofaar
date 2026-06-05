@@ -18,7 +18,12 @@ import { Label } from "@/components/atoms/label";
 import { Skeleton } from "@/components/atoms/skeleton";
 
 export default function ProfilePage() {
-  const { data: user, isLoading, error: profileError, refetch: refetchProfile } = useProfile();
+  const {
+    data: user,
+    isLoading,
+    error: profileError,
+    refetch: refetchProfile,
+  } = useProfile();
   const updateProfile = useUpdateProfile();
   const changePassword = useChangePassword();
 
@@ -53,11 +58,15 @@ export default function ProfilePage() {
             Unable to Load Profile
           </h1>
           <p className="mb-8 text-base leading-relaxed text-muted-foreground">
-            We encountered an issue while loading your profile. Please try
-            again or sign in again.
+            We encountered an issue while loading your profile. Please try again
+            or sign in again.
           </p>
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-            <Button onClick={() => refetchProfile()} size="lg" className="gap-2">
+            <Button
+              onClick={() => refetchProfile()}
+              size="lg"
+              className="gap-2"
+            >
               Try Again
             </Button>
           </div>

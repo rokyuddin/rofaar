@@ -1,44 +1,20 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiClient } from "@/lib/api-client";
-import { ApiResponse, AuthResponse, User } from "@/types/api";
 import { toast } from "sonner";
+import { apiClient } from "@/lib/api-client";
+import type { ApiResponse, AuthResponse, User } from "@/types/api";
 
 // ─── Registration ────────────────────────────────────────────────────────────
 
-export const useSendOtp = () => {
-  return useMutation({
-    mutationFn: async (phone: string) => {
-      const { data } = await apiClient.post<ApiResponse<void>>(
-        "/auth/register/send-otp",
-        { phone },
-      );
-      return data;
-    },
-  });
-};
-
-export const useVerifyOtp = () => {
-  return useMutation({
-    mutationFn: async ({ phone, otp }: { phone: string; otp: string }) => {
-      const { data } = await apiClient.post<ApiResponse<{ token: string }>>(
-        "/auth/register/verify-otp",
-        { phone, otp },
-      );
-      return data;
-    },
-  });
-};
-
-export const useRegisterComplete = () => {
+export const useRegister = () => {
   return useMutation({
     mutationFn: async (payload: {
-      token: string;
       name: string;
-      email: string;
+      phone: string;
       password: string;
+      email?: string;
     }) => {
       const { data } = await apiClient.post<ApiResponse<AuthResponse>>(
-        "/auth/register/complete",
+        "/auth/register",
         payload,
       );
       return data;

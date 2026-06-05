@@ -11,7 +11,12 @@ import { Skeleton } from "@/components/atoms/skeleton";
 import { Package } from "lucide-react";
 
 export default function OrdersPage() {
-  const { data: orders, isLoading, error: ordersError, refetch: refetchOrders } = useMyOrders();
+  const {
+    data: orders,
+    isLoading,
+    error: ordersError,
+    refetch: refetchOrders,
+  } = useMyOrders();
 
   if (isLoading) {
     return (

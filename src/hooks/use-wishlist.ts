@@ -2,10 +2,16 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api-client";
 import type { WishlistItem } from "@/types/api";
 
-export function useWishlist() {
+export function useWishlist(options?: { enabled?: boolean }) {
   return useQuery<WishlistItem[]>({
     queryKey: ["wishlist"],
-    queryFn: () => apiClient.get("/wishlist"),
+    queryFn: async () => {
+      const { data } = await apiClient.get<{ data: WishlistItem[] }>(
+        "/wishlist",
+      );
+      return data.data ?? [];
+    },
+    enabled: options?.enabled ?? true,
   });
 }
 

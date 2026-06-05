@@ -42,7 +42,12 @@ import {
 
 export default function CheckoutPage() {
   const router = useRouter();
-  const { data: cartItems, isLoading: cartLoading, error: cartError, refetch: refetchCart } = useCart();
+  const {
+    data: cartItems,
+    isLoading: cartLoading,
+    error: cartError,
+    refetch: refetchCart,
+  } = useCart();
   const { data: addresses, isLoading: addressesLoading } = useAddresses();
   const { data: shippingData, isLoading: shippingLoading } = useShippingZones();
   const placeOrder = usePlaceOrder();
@@ -173,7 +178,11 @@ export default function CheckoutPage() {
                 Please try again or return to your cart.
               </p>
               <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-                <Button onClick={() => refetchCart()} size="lg" className="gap-2">
+                <Button
+                  onClick={() => refetchCart()}
+                  size="lg"
+                  className="gap-2"
+                >
                   Try Again
                 </Button>
                 <Button asChild variant="outline" size="lg" className="gap-2">

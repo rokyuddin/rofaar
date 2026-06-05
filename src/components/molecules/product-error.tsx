@@ -61,11 +61,7 @@ export function ProductNotFound({
   );
 }
 
-export function ProductLoadError({
-  onRetry,
-}: {
-  onRetry?: () => void;
-}) {
+export function ProductLoadError({ onRetry }: { onRetry?: () => void }) {
   return (
     <div className="flex min-h-[70vh] flex-col items-center justify-center px-4">
       <div className="mx-auto max-w-lg text-center">

@@ -40,7 +40,12 @@ const emptyForm: Omit<Address, "id"> = {
 };
 
 export default function AddressesPage() {
-  const { data: addresses, isLoading, error: addressesError, refetch: refetchAddresses } = useAddresses();
+  const {
+    data: addresses,
+    isLoading,
+    error: addressesError,
+    refetch: refetchAddresses,
+  } = useAddresses();
   const createAddress = useCreateAddress();
   const updateAddress = useUpdateAddress();
   const deleteAddress = useDeleteAddress();
@@ -119,10 +124,19 @@ export default function AddressesPage() {
             again or add a new address.
           </p>
           <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-            <Button onClick={() => refetchAddresses()} size="lg" className="gap-2">
+            <Button
+              onClick={() => refetchAddresses()}
+              size="lg"
+              className="gap-2"
+            >
               Try Again
             </Button>
-            <Button onClick={openCreate} variant="outline" size="lg" className="gap-2">
+            <Button
+              onClick={openCreate}
+              variant="outline"
+              size="lg"
+              className="gap-2"
+            >
               <Plus size={16} />
               Add Address
             </Button>

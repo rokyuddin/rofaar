@@ -1,18 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { ArrowRight, LogIn, Minus, Plus, ShoppingBag, X } from "lucide-react";
 import Link from "next/link";
-import {
-  useCart,
-  useUpdateCartItem,
-  useRemoveCartItem,
-  useClearCart,
-} from "@/hooks/use-cart";
-import { useValidateCoupon } from "@/hooks/use-coupons";
-import { Button } from "@/components/atoms/button";
-import { Input } from "@/components/atoms/input";
-import { Separator } from "@/components/atoms/separator";
-import { Skeleton } from "@/components/atoms/skeleton";
+import { useSession } from "next-auth/react";
+import { useState } from "react";
 import { Badge } from "@/components/atoms/badge";
 import {
   Breadcrumb,
@@ -22,14 +13,93 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/atoms/breadcrumb";
-import { Minus, Plus, X, ShoppingBag, ArrowRight } from "lucide-react";
+import { Button } from "@/components/atoms/button";
+import { Input } from "@/components/atoms/input";
+import { Separator } from "@/components/atoms/separator";
+import { Skeleton } from "@/components/atoms/skeleton";
+import {
+  useCart,
+  useClearCart,
+  useRemoveCartItem,
+  useUpdateCartItem,
+} from "@/hooks/use-cart";
+import { useValidateCoupon } from "@/hooks/use-coupons";
+import { useLoginPrompt } from "@/providers/login-prompt-provider";
+import { useCartStore } from "@/stores/cart-store";
+
+interface CartPageItem {
+  id: string;
+  productId: string;
+  quantity: number;
+  price: string;
+  product: {
+    id: string;
+    name: string;
+    slug: string;
+    images: { url: string }[];
+    category: { name: string };
+    price: string;
+    finalPrice: number | null;
+  };
+}
 
 export default function CartPage() {
-  const { data: cartItems, isLoading, error: cartError, refetch: refetchCart } = useCart();
-  const updateItem = useUpdateCartItem();
-  const removeItem = useRemoveCartItem();
-  const clearCart = useClearCart();
-  const validateCoupon = useValidateCoupon();
+  const { data: session } = useSession();
+  const { openPrompt } = useLoginPrompt();
+
+  // API cart (logged in)
+  const {
+    data: apiCartItems,
+    isLoading: apiLoading,
+    error: cartError,
+    refetch: refetchCart,
+  } = useCart();
+  const updateApiItem = useUpdateCartItem();
+  const removeApiItem = useRemoveCartItem();
+  const clearApiCart = useClearCart();
+
+  // Zustand cart (guest)
+  const guestItems = useCartStore((s) => s.items);
+  const guestUpdateQuantity = useCartStore((s) => s.updateQuantity);
+  const guestRemoveItem = useCartStore((s) => s.removeItem);
+  const guestClearCart = useCartStore((s) => s.clearCart);
+
+  const isLoggedIn = !!session;
+  const isLoading = isLoggedIn ? apiLoading : false;
+  const cartErrorState = isLoggedIn ? cartError : null;
+
+  // Unified cart items
+  const cartItems: CartPageItem[] = isLoggedIn
+    ? (apiCartItems ?? []).map((item) => ({
+        id: item.id,
+        productId: item.productId,
+        quantity: item.quantity,
+        price: item.price,
+        product: {
+          id: item.product.id,
+          name: item.product.name,
+          slug: item.product.slug,
+          images: item.product.images,
+          category: item.product.category,
+          price: item.product.price,
+          finalPrice: item.product.finalPrice,
+        },
+      }))
+    : guestItems.map((item) => ({
+        id: item.productId,
+        productId: item.productId,
+        quantity: item.quantity,
+        price: String(item.product.finalPrice ?? item.product.price),
+        product: {
+          id: item.product.id,
+          name: item.product.name,
+          slug: item.product.slug,
+          images: item.product.images,
+          category: item.product.category,
+          price: item.product.price,
+          finalPrice: item.product.finalPrice,
+        },
+      }));
 
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<{
@@ -37,16 +107,14 @@ export default function CartPage() {
     discount: number;
   } | null>(null);
 
-  const subtotal =
-    cartItems?.reduce(
-      (sum, item) => sum + Number(item.price) * item.quantity,
-      0,
-    ) ?? 0;
+  const subtotal = cartItems.reduce(
+    (sum, item) => sum + Number(item.price) * item.quantity,
+    0,
+  );
   const shipping = subtotal > 0 ? 120 : 0;
   const discount = appliedCoupon?.discount ?? 0;
   const total = subtotal + shipping - discount;
-  const itemCount =
-    cartItems?.reduce((sum, item) => sum + item.quantity, 0) ?? 0;
+  const itemCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   const handleApplyCoupon = () => {
     if (!couponCode.trim()) return;
@@ -65,14 +133,43 @@ export default function CartPage() {
   };
 
   const handleQuantityChange = (
-    id: string,
+    productId: string,
     currentQty: number,
     delta: number,
   ) => {
     const newQty = currentQty + delta;
     if (newQty < 1) return;
-    updateItem.mutate({ id, quantity: newQty });
+
+    if (isLoggedIn) {
+      const apiItem = apiCartItems?.find((i) => i.productId === productId);
+      if (apiItem) {
+        updateApiItem.mutate({ id: apiItem.id, quantity: newQty });
+      }
+    } else {
+      guestUpdateQuantity(productId, newQty);
+    }
   };
+
+  const handleRemoveItem = (productId: string) => {
+    if (isLoggedIn) {
+      const apiItem = apiCartItems?.find((i) => i.productId === productId);
+      if (apiItem) {
+        removeApiItem.mutate(apiItem.id);
+      }
+    } else {
+      guestRemoveItem(productId);
+    }
+  };
+
+  const handleClearCart = () => {
+    if (isLoggedIn) {
+      clearApiCart.mutate();
+    } else {
+      guestClearCart();
+    }
+  };
+
+  const validateCoupon = useValidateCoupon();
 
   if (isLoading) {
     return (
@@ -100,7 +197,7 @@ export default function CartPage() {
     );
   }
 
-  if (cartError) {
+  if (cartErrorState) {
     return (
       <div className="min-h-screen">
         <div className="container mx-auto px-4 py-8">
@@ -133,7 +230,11 @@ export default function CartPage() {
                 try again or continue shopping.
               </p>
               <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-                <Button onClick={() => refetchCart()} size="lg" className="gap-2">
+                <Button
+                  onClick={() => refetchCart()}
+                  size="lg"
+                  className="gap-2"
+                >
                   Try Again
                 </Button>
                 <Button asChild variant="outline" size="lg" className="gap-2">
@@ -147,7 +248,7 @@ export default function CartPage() {
     );
   }
 
-  if (!cartItems || cartItems.length === 0) {
+  if (cartItems.length === 0) {
     return (
       <div className="min-h-screen">
         <div className="container mx-auto px-4 py-8">
@@ -198,16 +299,49 @@ export default function CartPage() {
           </BreadcrumbList>
         </Breadcrumb>
 
+        {/* Guest login banner */}
+        {!isLoggedIn && (
+          <div className="mb-6 flex items-center justify-between rounded-none border border-border bg-muted/50 p-4">
+            <div className="flex items-center gap-3">
+              <LogIn className="size-5 text-muted-foreground" />
+              <p className="text-sm">
+                <span className="font-medium">Sign in</span> to save your bag
+                and check out faster.
+              </p>
+            </div>
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="rounded-none"
+            >
+              <Link href="/login">Sign In</Link>
+            </Button>
+          </div>
+        )}
+
         <div className="mb-8 flex items-end justify-between">
           <h1 className="text-3xl font-bold font-heading tracking-tight lg:text-4xl">
             Shopping Bag
           </h1>
-          <Badge
-            variant="secondary"
-            className="rounded-none text-xs uppercase tracking-widest"
-          >
-            {itemCount} {itemCount === 1 ? "item" : "items"}
-          </Badge>
+          <div className="flex items-center gap-3">
+            <Badge
+              variant="secondary"
+              className="rounded-none text-xs uppercase tracking-widest"
+            >
+              {itemCount} {itemCount === 1 ? "item" : "items"}
+            </Badge>
+            {cartItems.length > 0 && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleClearCart}
+                className="text-xs text-muted-foreground hover:text-destructive"
+              >
+                Clear All
+              </Button>
+            )}
+          </div>
         </div>
 
         <div className="grid gap-8 lg:grid-cols-[1fr_380px]">
@@ -247,8 +381,8 @@ export default function CartPage() {
                     <Button
                       variant="ghost"
                       size="icon-xs"
-                      onClick={() => removeItem.mutate(item.id)}
-                      disabled={removeItem.isPending}
+                      onClick={() => handleRemoveItem(item.productId)}
+                      disabled={isLoggedIn ? removeApiItem.isPending : false}
                       className="text-muted-foreground hover:text-destructive"
                     >
                       <X className="size-3" />
@@ -261,9 +395,16 @@ export default function CartPage() {
                         variant="ghost"
                         size="icon-xs"
                         onClick={() =>
-                          handleQuantityChange(item.id, item.quantity, -1)
+                          handleQuantityChange(
+                            item.productId,
+                            item.quantity,
+                            -1,
+                          )
                         }
-                        disabled={item.quantity <= 1 || updateItem.isPending}
+                        disabled={
+                          item.quantity <= 1 ||
+                          (isLoggedIn ? updateApiItem.isPending : false)
+                        }
                       >
                         <Minus className="size-3" />
                       </Button>
@@ -274,9 +415,9 @@ export default function CartPage() {
                         variant="ghost"
                         size="icon-xs"
                         onClick={() =>
-                          handleQuantityChange(item.id, item.quantity, 1)
+                          handleQuantityChange(item.productId, item.quantity, 1)
                         }
-                        disabled={updateItem.isPending}
+                        disabled={isLoggedIn ? updateApiItem.isPending : false}
                       >
                         <Plus className="size-3" />
                       </Button>
@@ -374,12 +515,23 @@ export default function CartPage() {
               </div>
 
               <div className="mt-6 space-y-3">
-                <Button asChild className="w-full rounded-none" size="lg">
-                  <Link href="/checkout">
+                {isLoggedIn ? (
+                  <Button asChild className="w-full rounded-none" size="lg">
+                    <Link href="/checkout">
+                      Proceed to Checkout
+                      <ArrowRight className="ml-2 size-4" />
+                    </Link>
+                  </Button>
+                ) : (
+                  <Button
+                    className="w-full rounded-none"
+                    size="lg"
+                    onClick={openPrompt}
+                  >
                     Proceed to Checkout
                     <ArrowRight className="ml-2 size-4" />
-                  </Link>
-                </Button>
+                  </Button>
+                )}
                 <Button
                   asChild
                   variant="outline"
