@@ -1,52 +1,43 @@
-"use client";
-
 import { Suspense } from "react";
-import { Hero } from "@/features/landing/components/hero";
+import { HeroView } from "@/features/landing/components/hero-view";
 import { AdSection } from "@/features/landing/components/ad-section";
 import { CategoryGrid } from "@/features/landing/components/category-grid";
 import { ProductListing } from "@/features/landing/components/product-listing";
 import { Testimonials } from "@/features/landing/components/testimonials";
 import { Newsletter } from "@/features/landing/components/newsletter";
 import { ErrorBoundary } from "react-error-boundary";
-import { Button } from "@/components/atoms/button";
+import { ErrorFallback } from "@/components/molecules/error-fallback";
+import { fetchCategories, fetchProducts } from "@/lib/api-server";
 
-function ErrorFallback({
-  error,
-  resetErrorBoundary,
-}: {
-  error: unknown;
-  resetErrorBoundary: () => void;
-}) {
-  const message =
-    error instanceof Error ? error.message : "An unknown error occurred";
-  return (
-    <div className="flex h-[400px] flex-col items-center justify-center p-4 text-center">
-      <h2 className="mb-4 text-2xl font-bold">Something went wrong</h2>
-      <p className="mb-6 text-muted-foreground">{message}</p>
-      <Button onClick={resetErrorBoundary}>Try again</Button>
-    </div>
-  );
-}
+export default async function LandingPage() {
+  "use cache";
 
-export default function LandingPage() {
+  const [categoriesRes, productsRes] = await Promise.all([
+    fetchCategories(6),
+    fetchProducts(20, "newest"),
+  ]);
+
   return (
     <div className="flex flex-col">
-      <Hero />
+      <HeroView />
       <AdSection />
 
       <ErrorBoundary FallbackComponent={ErrorFallback}>
-        <CategoryGrid />
+        <CategoryGrid categories={categoriesRes.data || []} />
       </ErrorBoundary>
 
       <ErrorBoundary FallbackComponent={ErrorFallback}>
         <Suspense
           fallback={
-            <div className="h-[400px] flex items-center justify-center">
+            <div className="flex h-[400px] items-center justify-center">
               Loading products...
             </div>
           }
         >
-          <ProductListing />
+          <ProductListing
+            initialProducts={productsRes.data || []}
+            initialPagination={productsRes.pagination}
+          />
         </Suspense>
       </ErrorBoundary>
 

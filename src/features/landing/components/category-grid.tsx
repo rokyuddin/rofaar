@@ -1,32 +1,10 @@
-"use client";
-
-import { useCategories } from "@/hooks/use-categories";
 import Link from "next/link";
-import { Skeleton } from "@/components/atoms/skeleton";
+import type { Category } from "@/types/api";
 
-export function CategoryGrid() {
-  const { data, isLoading } = useCategories({ limit: 6 });
-
-  if (isLoading) {
-    return (
-      <section className="py-16">
-        <div className="container mx-auto px-4">
-          <div className="mb-8 flex items-end justify-between">
-            <h2 className="text-3xl font-bold font-heading">
-              Shop by Category
-            </h2>
-          </div>
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-6">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="aspect-square bg-muted animate-pulse" />
-            ))}
-          </div>
-        </div>
-      </section>
-    );
+export function CategoryGrid({ categories }: { categories: Category[] }) {
+  if (categories.length === 0) {
+    return null;
   }
-
-  const categories = data?.data || [];
 
   return (
     <section className="py-16">

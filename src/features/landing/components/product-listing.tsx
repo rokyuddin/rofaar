@@ -5,11 +5,18 @@ import { Button } from "@/components/atoms/button";
 import Link from "next/link";
 import { Skeleton } from "@/components/atoms/skeleton";
 import { Product } from "@/types/api";
+import type { ApiResponse } from "@/types/api";
 import { useQueryState, parseAsStringLiteral } from "nuqs";
 
 const sortOptions = ["newest", "price-low", "price-high", "popular"] as const;
 
-export function ProductListing() {
+export function ProductListing({
+  initialProducts,
+  initialPagination,
+}: {
+  initialProducts: Product[];
+  initialPagination?: ApiResponse<Product[]>["pagination"];
+}) {
   const [sort, setSort] = useQueryState(
     "sort",
     parseAsStringLiteral(sortOptions).withDefault("newest"),
@@ -18,7 +25,9 @@ export function ProductListing() {
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } =
     useInfiniteProducts({ limit: 20, sort: sort as any });
 
-  if (isLoading) {
+  const products = data?.pages.flatMap((page) => page.data) ?? initialProducts;
+
+  if (isLoading && !data) {
     return (
       <section className="py-16">
         <div className="container mx-auto px-4">
@@ -38,8 +47,6 @@ export function ProductListing() {
       </section>
     );
   }
-
-  const products = data?.pages.flatMap((page) => page.data) || [];
 
   return (
     <section className="py-16">
@@ -70,13 +77,16 @@ export function ProductListing() {
           </Link>
         </div>
 
-        <div className="grid grid-cols-2 gap-x-4 gap-y-10 md:grid-cols-3 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
           {products.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}
         </div>
 
-        {hasNextPage && (
+        {(hasNextPage ||
+          (!data &&
+            initialPagination &&
+            initialPagination.page < initialPagination.totalPages)) && (
           <div className="mt-12 flex justify-center">
             <Button
               variant="outline"
@@ -95,48 +105,41 @@ export function ProductListing() {
 }
 
 function ProductCard({ product }: { product: Product }) {
+  const hasDiscount = product.discountPercentage > 0;
   return (
-    <div className="group relative flex flex-col">
+    <div className="group flex flex-col overflow-hidden rounded-sm border border-border bg-card">
       <Link
         href={`/products/${product.slug}`}
-        className="relative aspect-[4/5] overflow-hidden bg-muted"
+        className="relative block aspect-square overflow-hidden bg-muted"
       >
         <img
           src={product.images[0]?.url || "https://via.placeholder.com/400x500"}
           alt={product.name}
           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
         />
-        {product.discountPercentage > 0 && (
-          <div className="absolute left-2 top-2 bg-primary px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-primary-foreground">
-            -{product.discountPercentage}%
-          </div>
-        )}
       </Link>
-      <div className="mt-4 flex flex-col space-y-1">
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-muted-foreground uppercase tracking-widest">
-            {product.category.name}
-          </span>
-          <span className="text-xs font-medium text-muted-foreground">
-            {product.brand.name}
-          </span>
-        </div>
+      <div className="flex flex-1 flex-col gap-1 p-2.5">
         <Link
           href={`/products/${product.slug}`}
-          className="text-base font-semibold transition-colors hover:text-primary"
+          className="line-clamp-2 min-h-[2.5rem] text-xs font-medium leading-snug text-foreground transition-colors hover:text-primary"
         >
           {product.name}
         </Link>
-        <div className="flex items-center space-x-2">
-          <span className="text-sm font-bold">
+        <div className="mt-1 flex items-baseline gap-1.5">
+          <span className="text-sm font-bold text-orange-600">
             ৳{product.finalPrice.toLocaleString()}
           </span>
-          {product.discountPercentage > 0 && (
-            <span className="text-xs text-muted-foreground line-through">
+          {hasDiscount && (
+            <span className="text-[11px] text-muted-foreground line-through">
               ৳{Number(product.price).toLocaleString()}
             </span>
           )}
         </div>
+        {hasDiscount && (
+          <span className="text-[11px] font-medium text-muted-foreground">
+            -{product.discountPercentage}%
+          </span>
+        )}
       </div>
     </div>
   );

@@ -1,32 +1,45 @@
+"use client";
+
 import { Button } from "@/components/atoms/button";
 import Link from "next/link";
-import { motion } from "framer-motion";
+import type { Banner } from "@/types/api";
 
-export function Hero() {
+interface HeroProps {
+  banner?: Banner | null;
+}
+
+export function Hero({ banner }: HeroProps) {
+  const backgroundImage =
+    banner?.imageUrl ??
+    "https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&q=80";
+
   return (
     <section className="relative h-[80vh] w-full overflow-hidden bg-muted">
-      {/* Background Image Placeholder */}
-      <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1523381210434-271e8be1f52b?auto=format&fit=crop&q=80')] bg-cover bg-center">
+      <div
+        className="absolute inset-0 bg-cover bg-center"
+        style={{ backgroundImage: `url('${backgroundImage}')` }}
+      >
         <div className="absolute inset-0 bg-black/40" />
       </div>
 
       <div className="container relative mx-auto flex h-full flex-col justify-center px-4 text-white">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
-          className="max-w-2xl"
-        >
+        <div className="max-w-2xl animate-fade-in-up">
           <h1 className="mb-6 font-heading text-5xl font-bold leading-tight md:text-7xl">
-            Tools for the <br />
-            <span className="text-primary-foreground">Productive Believer</span>
+            {banner?.title ? (
+              banner.title
+            ) : (
+              <>
+                Tools for the <br />
+                <span className="text-primary-foreground">Productive Believer</span>
+              </>
+            )}
           </h1>
           <p className="mb-8 text-lg text-gray-200 md:text-xl">
-            Reconnect with tradition through handcrafted goods designed for
-            spiritual focus and daily barakah.
+            {banner?.subtitle ??
+              "Reconnect with tradition through handcrafted goods designed for spiritual focus and daily barakah."}
           </p>
           <div className="flex flex-wrap gap-4">
-            <Link href="/products">
+            <Link href={banner?.linkUrl || "/products"}>
               <Button size="lg" className="h-12 px-8 text-base">
                 Shop Now
               </Button>
@@ -41,7 +54,7 @@ export function Hero() {
               </Button>
             </Link>
           </div>
-        </motion.div>
+        </div>
       </div>
     </section>
   );

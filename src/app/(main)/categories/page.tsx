@@ -9,14 +9,65 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/atoms/breadcrumb";
-import { Card, CardContent } from "@/components/atoms/card";
+import { Button } from "@/components/atoms/button";
 import { Skeleton } from "@/components/atoms/skeleton";
 import { useCategories } from "@/hooks/use-categories";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import { useRef, useState, useEffect } from "react";
+import type { Category } from "@/types/api";
+
+function CategoryCard({ category }: { category: Category }) {
+  return (
+    <Link
+      href={`/products?category=${category.slug}`}
+      className="group flex flex-col items-center gap-3"
+    >
+      <div className="flex h-28 w-28 items-center justify-center rounded-2xl bg-white p-4 shadow-sm transition-shadow group-hover:shadow-md sm:h-36 sm:w-36 sm:p-5">
+        <img
+          src={category.imageUrl || "https://via.placeholder.com/144"}
+          alt={category.name}
+          className="h-full w-full object-contain"
+        />
+      </div>
+      <span className="text-center text-xs font-medium text-foreground sm:text-sm">
+        {category.name}
+      </span>
+    </Link>
+  );
+}
 
 export default function CategoriesPage() {
   const { data: categoriesData, isLoading } = useCategories({ limit: 50 });
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
 
   const categories = categoriesData?.data || [];
+
+  const updateScrollButtons = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 0);
+    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 1);
+  };
+
+  useEffect(() => {
+    updateScrollButtons();
+    const el = scrollRef.current;
+    if (!el) return;
+    el.addEventListener("scroll", updateScrollButtons, { passive: true });
+    return () => el.removeEventListener("scroll", updateScrollButtons);
+  }, [categories]);
+
+  const scroll = (direction: "left" | "right") => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const scrollAmount = el.clientWidth * 0.6;
+    el.scrollBy({
+      left: direction === "left" ? -scrollAmount : scrollAmount,
+      behavior: "smooth",
+    });
+  };
 
   return (
     <div className="min-h-screen">
@@ -42,61 +93,59 @@ export default function CategoriesPage() {
           </p>
         </div>
 
-        {isLoading ? (
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {[...Array(8)].map((_item, i) => (
-              <div key={i} className="space-y-4">
-                <Skeleton className="aspect-[4/3] w-full rounded-none" />
-                <Skeleton className="h-5 w-2/3 rounded-none" />
-                <Skeleton className="h-3 w-full rounded-none" />
-                <Skeleton className="h-3 w-1/3 rounded-none" />
-              </div>
-            ))}
-          </div>
-        ) : categories.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-24 text-center">
-            <p className="text-lg text-muted-foreground">
-              No categories found.
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {categories.map((category) => (
-              <Link
-                key={category.id}
-                href={`/products?category=${category.slug}`}
+        <div className="rounded-2xl bg-[#fdf6ed] px-4 py-10 sm:px-8">
+          {isLoading ? (
+            <div className="flex gap-6">
+              {[...Array(8)].map((_item, i) => (
+                <div key={i} className="flex flex-col items-center gap-3">
+                  <Skeleton className="h-28 w-28 rounded-2xl sm:h-36 sm:w-36" />
+                  <Skeleton className="h-4 w-16 rounded-none" />
+                </div>
+              ))}
+            </div>
+          ) : categories.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <p className="text-lg text-muted-foreground">
+                No categories found.
+              </p>
+            </div>
+          ) : (
+            <div className="relative">
+              {canScrollLeft && (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="absolute -left-4 top-1/2 z-10 h-10 w-10 -translate-y-1/2 rounded-full border-orange-200 bg-white text-orange-500 shadow-md hover:bg-orange-50 hover:text-orange-600 sm:-left-5"
+                  onClick={() => scroll("left")}
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </Button>
+              )}
+
+              <div
+                ref={scrollRef}
+                className="no-scrollbar flex items-start justify-start gap-6 overflow-x-auto scroll-smooth"
               >
-                <Card className="group rounded-none p-0 gap-0 h-full">
-                  <div className="relative aspect-[4/3] overflow-hidden bg-muted">
-                    <img
-                      src={
-                        category.imageUrl ||
-                        "https://via.placeholder.com/400x300"
-                      }
-                      alt={category.name}
-                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-                    />
+                {categories.map((category) => (
+                  <div key={category.id} className="flex-none">
+                    <CategoryCard category={category} />
                   </div>
-                  <CardContent className="p-4 flex flex-col flex-1">
-                    <h2 className="text-base font-bold font-heading">
-                      {category.name}
-                    </h2>
-                    {category.description && (
-                      <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
-                        {category.description}
-                      </p>
-                    )}
-                    <div className="mt-auto pt-3">
-                      <span className="text-[10px] font-bold uppercase tracking-widest text-primary">
-                        View Collection
-                      </span>
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
-          </div>
-        )}
+                ))}
+              </div>
+
+              {canScrollRight && (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="absolute -right-4 top-1/2 z-10 h-10 w-10 -translate-y-1/2 rounded-full border-orange-200 bg-white text-orange-500 shadow-md hover:bg-orange-50 hover:text-orange-600 sm:-right-5"
+                  onClick={() => scroll("right")}
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

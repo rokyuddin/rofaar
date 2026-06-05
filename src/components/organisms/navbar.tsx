@@ -7,9 +7,7 @@ import { signOut, useSession } from "next-auth/react";
 import { useState } from "react";
 import { Button } from "@/components/atoms/button";
 import { Logo } from "@/components/molecules/logo";
-import { useCounts } from "@/hooks/use-counts";
-import { useCartStore } from "@/stores/cart-store";
-import { useWishlistStore } from "@/stores/wishlist-store";
+import { cn } from "@/lib/utils";
 
 export function Navbar() {
   const { data: session } = useSession();
@@ -121,34 +119,30 @@ export function Navbar() {
       </div>
 
       {/* Mobile Menu */}
-      <AnimatePresence>
-        {isMenuOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="border-b bg-background lg:hidden"
-          >
-            <div className="flex flex-col space-y-4 p-4">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.name}
-                  href={link.href}
-                  onClick={() => setIsMenuOpen(false)}
-                  className="text-base font-medium transition-colors hover:text-primary"
-                >
-                  {link.name}
-                </Link>
-              ))}
-              {!session && (
-                <Link href="/login" onClick={() => setIsMenuOpen(false)}>
-                  <Button className="w-full">Login / Register</Button>
-                </Link>
-              )}
-            </div>
-          </motion.div>
+      <div
+        className={cn(
+          "border-b bg-background overflow-hidden transition-all duration-300 lg:hidden",
+          isMenuOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0",
         )}
-      </AnimatePresence>
+      >
+        <div className="flex flex-col space-y-4 p-4">
+          {navLinks.map((link) => (
+            <Link
+              key={link.name}
+              href={link.href}
+              onClick={() => setIsMenuOpen(false)}
+              className="text-base font-medium transition-colors hover:text-primary"
+            >
+              {link.name}
+            </Link>
+          ))}
+          {!session && (
+            <Link href="/login" onClick={() => setIsMenuOpen(false)}>
+              <Button className="w-full">Login / Register</Button>
+            </Link>
+          )}
+        </div>
+      </div>
     </nav>
   );
 }

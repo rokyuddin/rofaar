@@ -14,7 +14,6 @@ import {
   BreadcrumbSeparator,
 } from "@/components/atoms/breadcrumb";
 import { Button } from "@/components/atoms/button";
-import { Card, CardContent } from "@/components/atoms/card";
 import { Checkbox } from "@/components/atoms/checkbox";
 import {
   Pagination,
@@ -294,14 +293,18 @@ function ProductsPageInner() {
             )}
 
             {productsLoading ? (
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
                 {[...Array(ITEMS_PER_PAGE)].map((_item, i) => (
-                  <div key={i} className="space-y-4">
-                    <Skeleton className="aspect-[4/5] w-full rounded-none" />
-                    <Skeleton className="h-3 w-16 rounded-none" />
-                    <Skeleton className="h-4 w-3/4 rounded-none" />
-                    <Skeleton className="h-3 w-1/3 rounded-none" />
-                    <Skeleton className="h-4 w-20 rounded-none" />
+                  <div
+                    key={i}
+                    className="overflow-hidden rounded-sm border border-border bg-card"
+                  >
+                    <Skeleton className="aspect-square w-full rounded-none" />
+                    <div className="space-y-2 p-2.5">
+                      <Skeleton className="h-3 w-full rounded-none" />
+                      <Skeleton className="h-3 w-2/3 rounded-none" />
+                      <Skeleton className="h-4 w-1/2 rounded-none" />
+                    </div>
                   </div>
                 ))}
               </div>
@@ -321,7 +324,7 @@ function ProductsPageInner() {
                 )}
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
                 {products.map((product) => (
                   <ProductCard key={product.id} product={product} />
                 ))}
@@ -406,49 +409,42 @@ export default function ProductsPage() {
 }
 
 function ProductCard({ product }: { product: Product }) {
+  const hasDiscount = product.discountPercentage > 0;
   return (
-    <Card className="group rounded-none p-0 ring-0 gap-0">
+    <div className="group flex flex-col overflow-hidden rounded-sm border border-border bg-card">
       <Link
         href={`/products/${product.slug}`}
-        className="relative aspect-[4/5] overflow-hidden bg-muted block"
+        className="relative block aspect-square overflow-hidden bg-muted"
       >
         <img
           src={product.images[0]?.url || "https://via.placeholder.com/400x500"}
           alt={product.name}
           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
         />
-        {product.discountPercentage > 0 && (
-          <div className="absolute left-0 top-0 bg-primary px-2 py-1 text-[10px] font-bold uppercase tracking-widest text-primary-foreground">
-            -{product.discountPercentage}%
-          </div>
-        )}
       </Link>
-      <CardContent className="p-4">
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-            {product.category.name}
-          </span>
-          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
-            {product.brand.name}
-          </span>
-        </div>
+      <div className="flex flex-1 flex-col gap-1 p-2.5">
         <Link
           href={`/products/${product.slug}`}
-          className="text-sm font-medium leading-tight transition-colors hover:text-primary block"
+          className="line-clamp-2 min-h-[2.5rem] text-xs font-medium leading-snug text-foreground transition-colors hover:text-primary"
         >
           {product.name}
         </Link>
-        <div className="mt-2 flex items-center gap-2">
-          <span className="text-sm font-bold">
-            &#৳;{product.finalPrice.toLocaleString()}
+        <div className="mt-1 flex items-baseline gap-1.5">
+          <span className="text-sm font-bold text-orange-600">
+            ৳{product.finalPrice.toLocaleString()}
           </span>
-          {product.discountPercentage > 0 && (
-            <span className="text-xs text-muted-foreground line-through">
-              &#৳;{Number(product.price).toLocaleString()}
+          {hasDiscount && (
+            <span className="text-[11px] text-muted-foreground line-through">
+              ৳{Number(product.price).toLocaleString()}
             </span>
           )}
         </div>
-      </CardContent>
-    </Card>
+        {hasDiscount && (
+          <span className="text-[11px] font-medium text-muted-foreground">
+            -{product.discountPercentage}%
+          </span>
+        )}
+      </div>
+    </div>
   );
 }

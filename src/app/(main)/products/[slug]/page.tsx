@@ -29,22 +29,24 @@ import {
   TabsTrigger,
 } from "@/components/atoms/tabs";
 import { Textarea } from "@/components/atoms/textarea";
-import {
-  ProductLoadError,
-  ProductNotFound,
-} from "@/components/molecules/product-error";
-import { useAddToCart } from "@/hooks/use-cart";
-import { useProductBySlug, useRelatedProducts } from "@/hooks/use-products";
-import { useAskQuestion, useProductQuestions } from "@/hooks/use-qa";
-import { useProductReviews, useWriteReview } from "@/hooks/use-reviews";
-import {
-  useAddToWishlist,
-  useRemoveFromWishlist,
-  useWishlist,
-} from "@/hooks/use-wishlist";
-import { useCartStore } from "@/stores/cart-store";
-import { useWishlistStore } from "@/stores/wishlist-store";
-import type { Product } from "@/types/api";
+import { Badge } from "@/components/atoms/badge";
+import { Skeleton } from "@/components/atoms/skeleton";
+import { QuantityInput } from "@/components/atoms/quantity-input";
+import { toast } from "sonner";
+import { Product } from "@/types/api";
+
+function formatDate(dateStr: string | undefined | null): string {
+  if (!dateStr) return "";
+  try {
+    return new Date(dateStr).toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  } catch {
+    return "";
+  }
+}
 
 function StarRating({ rating, size = 16 }: { rating: number; size?: number }) {
   return (
@@ -209,6 +211,9 @@ function ProductDetailPageInner({
     return <ProductNotFound />;
   }
 
+  const reviewsList = Array.isArray(reviews) ? reviews : [];
+  const questionsList = Array.isArray(questions) ? questions : [];
+
   const originalPrice = Number(product.price);
   const hasDiscount = product.discountPercentage > 0;
 
@@ -217,28 +222,19 @@ function ProductDetailPageInner({
     : guestWishlistHasItem;
 
   const handleAddToCart = () => {
-    if (isLoggedIn) {
-      addToCartApi.mutate({ productId: product.id, quantity });
-    } else {
-      guestAddToCart(product, quantity);
-    }
+    addToCart.mutate(
+      { productId: product.id, quantity },
+      {
+        onError: () => toast.error("Failed to add to cart. Please try again."),
+      },
+    );
   };
 
-  const handleWishlistToggle = () => {
-    if (isLoggedIn) {
-      if (isInWishlist) {
-        const apiItem = apiWishlistItems?.find(
-          (i) => i.productId === product.id,
-        );
-        if (apiItem) {
-          removeFromWishlistApi.mutate(apiItem.id);
-        }
-      } else {
-        addToWishlistApi.mutate(product.id);
-      }
-    } else {
-      guestWishlistToggle(product);
-    }
+  const handleAddToWishlist = () => {
+    addToWishlist.mutate(product.id, {
+      onError: () =>
+        toast.error("Failed to add to wishlist. Please try again."),
+    });
   };
 
   const handleWriteReview = () => {
@@ -253,7 +249,10 @@ function ProductDetailPageInner({
         onSuccess: () => {
           setReviewComment("");
           setReviewRating(5);
+          toast.success("Review submitted successfully!");
         },
+        onError: () =>
+          toast.error("Failed to submit review. Please try again."),
       },
     );
   };
@@ -262,7 +261,14 @@ function ProductDetailPageInner({
     if (!product || !questionText.trim()) return;
     askQuestion.mutate(
       { productId: product.id, question: questionText },
-      { onSuccess: () => setQuestionText("") },
+      {
+        onSuccess: () => {
+          setQuestionText("");
+          toast.success("Question submitted successfully!");
+        },
+        onError: () =>
+          toast.error("Failed to submit question. Please try again."),
+      },
     );
   };
 
@@ -340,14 +346,15 @@ function ProductDetailPageInner({
             <div className="flex items-center gap-2">
               <StarRating
                 rating={Math.round(
-                  reviews.length > 0
-                    ? reviews.reduce((sum, r) => sum + r.rating, 0) /
-                        reviews.length
+                  reviewsList.length > 0
+                    ? reviewsList.reduce((sum, r) => sum + (r.rating || 0), 0) /
+                        reviewsList.length
                     : 0,
                 )}
               />
               <span className="text-xs text-muted-foreground">
-                ({reviews.length} {reviews.length === 1 ? "review" : "reviews"})
+                ({reviewsList.length}{" "}
+                {reviewsList.length === 1 ? "review" : "reviews"})
               </span>
             </div>
 
@@ -448,9 +455,9 @@ function ProductDetailPageInner({
             <TabsList variant="line" className="w-full justify-start border-b">
               <TabsTrigger value="description">Description</TabsTrigger>
               <TabsTrigger value="reviews">
-                Reviews ({reviews.length})
+                Reviews ({reviewsList.length})
               </TabsTrigger>
-              <TabsTrigger value="qa">Q&A ({questions.length})</TabsTrigger>
+              <TabsTrigger value="qa">Q&A ({questionsList.length})</TabsTrigger>
             </TabsList>
 
             {/* Description Tab */}
@@ -473,24 +480,28 @@ function ProductDetailPageInner({
                 <div className="flex items-center gap-4">
                   <div className="text-center">
                     <div className="text-4xl font-bold">
-                      {reviews.length > 0
+                      {reviewsList.length > 0
                         ? (
-                            reviews.reduce((sum, r) => sum + r.rating, 0) /
-                            reviews.length
+                            reviewsList.reduce(
+                              (sum, r) => sum + (r.rating || 0),
+                              0,
+                            ) / reviewsList.length
                           ).toFixed(1)
                         : "0.0"}
                     </div>
                     <StarRating
                       rating={Math.round(
-                        reviews.length > 0
-                          ? reviews.reduce((sum, r) => sum + r.rating, 0) /
-                              reviews.length
+                        reviewsList.length > 0
+                          ? reviewsList.reduce(
+                              (sum, r) => sum + (r.rating || 0),
+                              0,
+                            ) / reviewsList.length
                           : 0,
                       )}
                       size={14}
                     />
                     <p className="mt-1 text-xs text-muted-foreground">
-                      {reviews.length} reviews
+                      {reviewsList.length} reviews
                     </p>
                   </div>
                 </div>
@@ -556,28 +567,21 @@ function ProductDetailPageInner({
                       </div>
                     ))}
                   </div>
-                ) : reviews.length === 0 ? (
+                ) : reviewsList.length === 0 ? (
                   <p className="text-center py-8 text-sm text-muted-foreground">
                     No reviews yet. Be the first to review this product!
                   </p>
                 ) : (
                   <div className="space-y-6">
-                    {reviews.map((review) => (
+                    {reviewsList.map((review) => (
                       <div
                         key={review.id}
                         className="border-b border-border pb-6 last:border-0"
                       >
                         <div className="mb-2 flex items-center gap-3">
-                          <StarRating rating={review.rating} size={12} />
+                          <StarRating rating={review.rating || 0} size={12} />
                           <span className="text-xs text-muted-foreground">
-                            {new Date(review.createdAt).toLocaleDateString(
-                              "en-US",
-                              {
-                                year: "numeric",
-                                month: "short",
-                                day: "numeric",
-                              },
-                            )}
+                            {formatDate(review.createdAt)}
                           </span>
                         </div>
                         {review.comment && (
@@ -630,13 +634,13 @@ function ProductDetailPageInner({
                       </div>
                     ))}
                   </div>
-                ) : questions.length === 0 ? (
+                ) : questionsList.length === 0 ? (
                   <p className="text-center py-8 text-sm text-muted-foreground">
                     No questions yet. Be the first to ask!
                   </p>
                 ) : (
                   <div className="space-y-6">
-                    {questions.map((q) => (
+                    {questionsList.map((q) => (
                       <div
                         key={q.id}
                         className="border-b border-border pb-6 last:border-0"
@@ -646,14 +650,10 @@ function ProductDetailPageInner({
                           <span className="text-sm">{q.question}</span>
                         </div>
                         <p className="mb-3 ml-5 text-xs text-muted-foreground">
-                          by {q.user.name} &middot;{" "}
-                          {new Date(q.createdAt).toLocaleDateString("en-US", {
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                          })}
+                          by {q.user?.name || "Anonymous"} &middot;{" "}
+                          {formatDate(q.createdAt)}
                         </p>
-                        {q.answers.length > 0 && (
+                        {Array.isArray(q.answers) && q.answers.length > 0 && (
                           <div className="ml-5 space-y-3">
                             {q.answers.map((a) => (
                               <div
@@ -677,7 +677,7 @@ function ProductDetailPageInner({
                                   {a.answer}
                                 </p>
                                 <p className="mt-1 text-xs text-muted-foreground/60">
-                                  by {a.user.name}
+                                  by {a.user?.name || "Anonymous"}
                                 </p>
                               </div>
                             ))}
