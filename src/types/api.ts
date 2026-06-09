@@ -43,6 +43,23 @@ export interface ProductImage {
   sortOrder: number;
 }
 
+export interface VariantAttribute {
+  name: string;
+  value: string;
+}
+
+export interface ProductVariant {
+  id: string;
+  sku: string;
+  name: string;
+  basePrice: number;
+  salePrice: number | null;
+  stock: number;
+  isActive: boolean;
+  isDefault: boolean;
+  attributes: VariantAttribute[];
+}
+
 export interface Product {
   id: string;
   name: string;
@@ -55,6 +72,9 @@ export interface Product {
   stock: number;
   lowStockThreshold?: number;
   isActive: boolean;
+  hasVariants: boolean;
+  variants: ProductVariant[];
+  freeShipping?: boolean;
   categoryId?: string;
   brandId?: string;
   category: Category;
@@ -92,11 +112,14 @@ export interface CartItem {
   id: string;
   userId: string;
   productId: string;
+  variantId: string;
   quantity: number;
   price: string;
+  currentPrice: number;
   createdAt: string;
   updatedAt: string;
   product: Product;
+  variant: ProductVariant;
 }
 
 // ─── Addresses ───────────────────────────────────────────────────────────────
@@ -175,6 +198,46 @@ export interface OrderTracking {
 export interface Counts {
   cart: number;
   wishlist: number;
+}
+
+// ─── Sync ────────────────────────────────────────────────────────────────────
+
+export interface CartSyncItem {
+  variantId: string;
+  quantity: number;
+}
+
+export interface CartSyncResult {
+  id: string;
+  variantId: string;
+  quantity: number;
+  price: string;
+}
+
+export interface WishlistSyncItem {
+  productId: string;
+}
+
+export interface WishlistSyncResult {
+  id: string;
+  productId: string;
+  createdAt: string;
+}
+
+export interface SyncSkippedItem {
+  variantId?: string;
+  productId?: string;
+  reason: string;
+}
+
+export interface CartSyncResponse {
+  synced: CartSyncResult[];
+  skipped: SyncSkippedItem[];
+}
+
+export interface WishlistSyncResponse {
+  synced: WishlistSyncResult[];
+  skipped: SyncSkippedItem[];
 }
 
 // ─── Wishlist ────────────────────────────────────────────────────────────────

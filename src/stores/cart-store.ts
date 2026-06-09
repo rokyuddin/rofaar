@@ -4,15 +4,16 @@ import type { Product } from "@/types/api";
 
 export interface CartStoreItem {
   productId: string;
+  variantId: string;
   quantity: number;
   product: Product;
 }
 
 interface CartStore {
   items: CartStoreItem[];
-  addItem: (product: Product, quantity?: number) => void;
-  updateQuantity: (productId: string, quantity: number) => void;
-  removeItem: (productId: string) => void;
+  addItem: (product: Product, variantId: string, quantity?: number) => void;
+  updateQuantity: (variantId: string, quantity: number) => void;
+  removeItem: (variantId: string) => void;
   clearCart: () => void;
   getTotalItems: () => number;
   getSubtotal: () => number;
@@ -23,15 +24,15 @@ export const useCartStore = create<CartStore>()(
     (set, get) => ({
       items: [],
 
-      addItem: (product: Product, quantity = 1) => {
+      addItem: (product: Product, variantId: string, quantity = 1) => {
         set((state) => {
           const existing = state.items.find(
-            (item) => item.productId === product.id,
+            (item) => item.variantId === variantId,
           );
           if (existing) {
             return {
               items: state.items.map((item) =>
-                item.productId === product.id
+                item.variantId === variantId
                   ? { ...item, quantity: item.quantity + quantity }
                   : item,
               ),
@@ -40,24 +41,24 @@ export const useCartStore = create<CartStore>()(
           return {
             items: [
               ...state.items,
-              { productId: product.id, quantity, product },
+              { productId: product.id, variantId, quantity, product },
             ],
           };
         });
       },
 
-      updateQuantity: (productId: string, quantity: number) => {
+      updateQuantity: (variantId: string, quantity: number) => {
         if (quantity < 1) return;
         set((state) => ({
           items: state.items.map((item) =>
-            item.productId === productId ? { ...item, quantity } : item,
+            item.variantId === variantId ? { ...item, quantity } : item,
           ),
         }));
       },
 
-      removeItem: (productId: string) => {
+      removeItem: (variantId: string) => {
         set((state) => ({
-          items: state.items.filter((item) => item.productId !== productId),
+          items: state.items.filter((item) => item.variantId !== variantId),
         }));
       },
 

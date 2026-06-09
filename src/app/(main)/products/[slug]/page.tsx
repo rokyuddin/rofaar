@@ -51,7 +51,7 @@ import {
 import { useCartStore } from "@/stores/cart-store";
 import { useWishlistStore } from "@/stores/wishlist-store";
 import { cn } from "@/lib/utils";
-import type { Product } from "@/types/api";
+import type { Product, ProductVariant } from "@/types/api";
 
 function formatDate(dateStr: string | undefined | null): string {
   if (!dateStr) return "";
@@ -290,6 +290,60 @@ function RelatedProductCard({ product }: { product: Product }) {
   );
 }
 
+function VariantSelector({
+  variants,
+  selectedAttributes,
+  onAttributeChange,
+}: {
+  variants: ProductVariant[];
+  selectedAttributes: Record<string, string>;
+  onAttributeChange: (name: string, value: string) => void;
+}) {
+  const attributeNames = [
+    ...new Set(variants.flatMap((v) => v.attributes.map((a) => a.name))),
+  ];
+
+  return (
+    <div className="space-y-4">
+      {attributeNames.map((attrName) => {
+        const values = [
+          ...new Set(
+            variants
+              .flatMap((v) => v.attributes)
+              .filter((a) => a.name === attrName)
+              .map((a) => a.value),
+          ),
+        ];
+
+        return (
+          <div key={attrName}>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-2">
+              {attrName}
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {values.map((value) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => onAttributeChange(attrName, value)}
+                  className={cn(
+                    "h-9 px-4 text-xs font-medium border transition-colors",
+                    selectedAttributes[attrName] === value
+                      ? "border-foreground bg-foreground text-background"
+                      : "border-border hover:border-foreground/40",
+                  )}
+                >
+                  {value}
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function ProductDetailPage({
   params,
 }: {
@@ -313,6 +367,9 @@ function ProductDetailPageInner({
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewComment, setReviewComment] = useState("");
   const [questionText, setQuestionText] = useState("");
+  const [selectedAttributes, setSelectedAttributes] = useState<
+    Record<string, string>
+  >({});
 
   const {
     data: product,
@@ -362,18 +419,51 @@ function ProductDetailPageInner({
         reviewsList.length
       : 0;
 
+  // Variant logic
+  const hasVariants = product.hasVariants && (product.variants?.length ?? 0) > 0;
+  const variants = product.variants ?? [];
+
+  const selectedVariant = hasVariants
+    ? variants.find((v) =>
+        Object.entries(selectedAttributes).every(
+          ([name, value]) =>
+            v.attributes.some((a) => a.name === name && a.value === value),
+        ),
+      )
+    : undefined;
+
+  const handleAttributeChange = (name: string, value: string) => {
+    setSelectedAttributes((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const effectivePrice = selectedVariant?.salePrice
+    ? selectedVariant.salePrice
+    : selectedVariant?.basePrice
+      ? selectedVariant.basePrice
+      : product.finalPrice ?? originalPrice;
+  const effectiveStock = selectedVariant?.stock ?? product.stock;
+  const effectiveInStock = hasVariants ? effectiveStock > 0 : inStock;
+
   const isInWishlist = isLoggedIn
     ? (apiWishlistItems ?? []).some((item) => item.productId === product.id)
     : guestWishlistHasItem;
 
   const handleAddToCart = () => {
     if (!isLoggedIn) {
-      guestAddToCart(product, quantity);
+      const variantId = selectedVariant?.id
+        ?? variants.find((v) => v.isDefault)?.id
+        ?? variants[0]?.id
+        ?? product.id;
+      guestAddToCart(product, variantId, quantity);
       toast.success("Added to cart");
       return;
     }
+    const variantId = selectedVariant?.id
+      ?? variants.find((v) => v.isDefault)?.id
+      ?? variants[0]?.id;
+    if (!variantId) return;
     addToCartApi.mutate(
-      { productId: product.id, quantity },
+      { variantId, quantity },
       {
         onError: () => toast.error("Failed to add to cart. Please try again."),
       },
@@ -543,15 +633,25 @@ function ProductDetailPageInner({
               {/* Price */}
               <div className="flex items-baseline gap-3 flex-wrap">
                 <span className="text-2xl md:text-3xl font-semibold tabular-nums text-foreground">
-                  ৳{(product.finalPrice ?? originalPrice).toLocaleString()}
+                  ৳{effectivePrice.toLocaleString()}
                 </span>
-                {hasDiscount && (
+                {hasDiscount && !hasVariants && (
                   <>
                     <span className="text-base text-muted-foreground line-through tabular-nums">
                       ৳{originalPrice.toLocaleString()}
                     </span>
                     <span className="text-xs font-semibold uppercase tracking-widest text-primary">
                       Save {product.discountPercentage}%
+                    </span>
+                  </>
+                )}
+                {hasVariants && selectedVariant?.salePrice && (
+                  <>
+                    <span className="text-base text-muted-foreground line-through tabular-nums">
+                      ৳{selectedVariant.basePrice.toLocaleString()}
+                    </span>
+                    <span className="text-xs font-semibold uppercase tracking-widest text-primary">
+                      Save
                     </span>
                   </>
                 )}
@@ -569,7 +669,7 @@ function ProductDetailPageInner({
 
               {/* Stock Status */}
               <div className="flex items-center gap-2">
-                {inStock ? (
+                {effectiveInStock ? (
                   <>
                     <span className="relative flex size-2">
                       <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-60" />
@@ -577,10 +677,10 @@ function ProductDetailPageInner({
                     </span>
                     <span className="text-xs font-medium text-emerald-700">
                       In Stock
-                      {product.stock <= 10 && (
+                      {effectiveStock <= 10 && (
                         <span className="text-muted-foreground">
                           {" "}
-                          · Only {product.stock} left
+                          · Only {effectiveStock} left
                         </span>
                       )}
                     </span>
@@ -589,11 +689,22 @@ function ProductDetailPageInner({
                   <>
                     <span className="size-2 rounded-full bg-destructive" />
                     <span className="text-xs font-medium text-destructive">
-                      Out of Stock
+                      {hasVariants && !selectedVariant
+                        ? "Select options to check availability"
+                        : "Out of Stock"}
                     </span>
                   </>
                 )}
               </div>
+
+              {/* Variant Selector */}
+              {hasVariants && (
+                <VariantSelector
+                  variants={variants}
+                  selectedAttributes={selectedAttributes}
+                  onAttributeChange={handleAttributeChange}
+                />
+              )}
 
               {/* Quantity + Add to Cart */}
               <div className="space-y-3">
@@ -605,20 +716,22 @@ function ProductDetailPageInner({
                     value={quantity}
                     onChange={setQuantity}
                     min={1}
-                    max={product.stock}
+                    max={effectiveStock}
                   />
                   <Button
                     size="lg"
                     onClick={handleAddToCart}
                     disabled={
-                      !inStock || (isLoggedIn && addToCartApi.isPending)
+                      !effectiveInStock ||
+                      (hasVariants && !selectedVariant) ||
+                      (isLoggedIn && addToCartApi.isPending)
                     }
                     className="flex-1 h-12 gap-2.5 text-sm font-medium tracking-wide"
                   >
                     <ShoppingCart size={16} strokeWidth={1.5} />
                     {isLoggedIn && addToCartApi.isPending
                       ? "Adding..."
-                      : inStock
+                      : effectiveInStock
                         ? "Add to Cart"
                         : "Unavailable"}
                   </Button>

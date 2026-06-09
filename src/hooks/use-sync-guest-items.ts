@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { apiClient } from "@/lib/api-client";
 import { useCartStore } from "@/stores/cart-store";
 import { useWishlistStore } from "@/stores/wishlist-store";
-import type { CartItem, WishlistItem } from "@/types/api";
+import type { CartSyncResponse, WishlistSyncResponse } from "@/types/api";
 
 export function useSyncGuestItems() {
   const { status } = useSession();
@@ -25,76 +25,70 @@ export function useSyncGuestItems() {
       }
 
       hasSynced.current = true;
-      let cartSynced = 0;
-      let wishlistSynced = 0;
+      const messages: string[] = [];
 
-      // Sync cart items
+      // Sync cart
       if (cartItems.length > 0) {
         try {
-          // Fetch existing API cart for merge
-          const { data: existingCart } = await apiClient.get<{
-            data: CartItem[];
-          }>("/cart");
-          const existingCartItems = existingCart.data ?? [];
-          const existingCartMap = new Map(
-            existingCartItems.map((item) => [item.productId, item]),
+          const { data: res } = await apiClient.post<{ data: CartSyncResponse }>(
+            "/cart/sync",
+            {
+              items: cartItems.map((item) => ({
+                variantId: item.variantId,
+                quantity: item.quantity,
+              })),
+            },
           );
-
-          for (const storeItem of cartItems) {
-            const existing = existingCartMap.get(storeItem.productId);
-            if (existing) {
-              // Merge: sum quantities
-              const newQty = existing.quantity + storeItem.quantity;
-              await apiClient.put(`/cart/${existing.id}`, {
-                quantity: newQty,
-              });
-            } else {
-              // Add new item
-              await apiClient.post("/cart", {
-                productId: storeItem.productId,
-                quantity: storeItem.quantity,
-              });
-            }
-            cartSynced++;
-          }
+          const result = res.data;
           useCartStore.getState().clearCart();
           queryClient.invalidateQueries({ queryKey: ["cart"] });
+
+          if (result.synced.length > 0) {
+            messages.push(
+              `${result.synced.length} cart item${result.synced.length > 1 ? "s" : ""} saved`,
+            );
+          }
+          if (result.skipped.length > 0) {
+            messages.push(
+              `${result.skipped.length} cart item${result.skipped.length > 1 ? "s" : ""} skipped`,
+            );
+          }
         } catch (error) {
           console.error("Failed to sync cart:", error);
         }
       }
 
-      // Sync wishlist items
+      // Sync wishlist
       if (wishlistItems.length > 0) {
         try {
-          // Fetch existing API wishlist for dedup
-          const { data: existingWishlist } = await apiClient.get<{
-            data: WishlistItem[];
-          }>("/wishlist");
-          const existingWishlistIds = new Set(
-            (existingWishlist.data ?? []).map((item) => item.productId),
-          );
-
-          for (const storeItem of wishlistItems) {
-            if (!existingWishlistIds.has(storeItem.productId)) {
-              await apiClient.post("/wishlist", {
-                productId: storeItem.productId,
-              });
-              wishlistSynced++;
-            }
-          }
+          const { data: res } = await apiClient.post<{
+            data: WishlistSyncResponse;
+          }>("/wishlist/sync", {
+            items: wishlistItems.map((item) => ({
+              productId: item.productId,
+            })),
+          });
+          const result = res.data;
           useWishlistStore.getState().clear();
           queryClient.invalidateQueries({ queryKey: ["wishlist"] });
+
+          if (result.synced.length > 0) {
+            messages.push(
+              `${result.synced.length} wishlist item${result.synced.length > 1 ? "s" : ""} saved`,
+            );
+          }
+          if (result.skipped.length > 0) {
+            messages.push(
+              `${result.skipped.length} wishlist item${result.skipped.length > 1 ? "s" : ""} skipped`,
+            );
+          }
         } catch (error) {
           console.error("Failed to sync wishlist:", error);
         }
       }
 
-      const totalSynced = cartSynced + wishlistSynced;
-      if (totalSynced > 0) {
-        toast.success(
-          `${totalSynced} item${totalSynced > 1 ? "s" : ""} saved to your account!`,
-        );
+      if (messages.length > 0) {
+        toast.success(messages.join(". ") + "!");
       }
     };
 

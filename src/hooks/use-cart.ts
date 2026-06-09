@@ -3,7 +3,7 @@ import { apiClient } from "@/lib/api-client";
 import type { CartItem } from "@/types/api";
 
 export interface AddToCartPayload {
-  productId: string;
+  variantId: string;
   quantity: number;
 }
 

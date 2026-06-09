@@ -31,8 +31,10 @@ import { useCheckoutStore } from "@/stores/checkout-store";
 interface CartPageItem {
   id: string;
   productId: string;
+  variantId: string;
   quantity: number;
   price: string;
+  variantName?: string;
   product: {
     id: string;
     name: string;
@@ -74,8 +76,10 @@ export default function CartPage() {
     ? (apiCartItems ?? []).map((item) => ({
         id: item.id,
         productId: item.productId,
+        variantId: item.variantId,
         quantity: item.quantity,
         price: item.price,
+        variantName: item.variant?.name,
         product: {
           id: item.product.id,
           name: item.product.name,
@@ -87,8 +91,9 @@ export default function CartPage() {
         },
       }))
     : guestItems.map((item) => ({
-        id: item.productId,
+        id: item.variantId,
         productId: item.productId,
+        variantId: item.variantId,
         quantity: item.quantity,
         price: String(item.product.finalPrice ?? item.product.price),
         product: {
@@ -135,7 +140,7 @@ export default function CartPage() {
   };
 
   const handleQuantityChange = (
-    productId: string,
+    cartItemId: string,
     currentQty: number,
     delta: number,
   ) => {
@@ -143,23 +148,17 @@ export default function CartPage() {
     if (newQty < 1) return;
 
     if (isLoggedIn) {
-      const apiItem = apiCartItems?.find((i) => i.productId === productId);
-      if (apiItem) {
-        updateApiItem.mutate({ id: apiItem.id, quantity: newQty });
-      }
+      updateApiItem.mutate({ id: cartItemId, quantity: newQty });
     } else {
-      guestUpdateQuantity(productId, newQty);
+      guestUpdateQuantity(cartItemId, newQty);
     }
   };
 
-  const handleRemoveItem = (productId: string) => {
+  const handleRemoveItem = (cartItemId: string) => {
     if (isLoggedIn) {
-      const apiItem = apiCartItems?.find((i) => i.productId === productId);
-      if (apiItem) {
-        removeApiItem.mutate(apiItem.id);
-      }
+      removeApiItem.mutate(cartItemId);
     } else {
-      guestRemoveItem(productId);
+      guestRemoveItem(cartItemId);
     }
   };
 
@@ -374,6 +373,11 @@ export default function CartPage() {
                       >
                         {item.product.name}
                       </Link>
+                      {item.variantName && (
+                        <p className="mt-0.5 text-[10px] uppercase tracking-widest text-muted-foreground">
+                          {item.variantName}
+                        </p>
+                      )}
                       <p className="mt-0.5 text-[10px] uppercase tracking-widest text-muted-foreground">
                         {item.product.category.name}
                       </p>
@@ -381,7 +385,7 @@ export default function CartPage() {
                     <Button
                       variant="ghost"
                       size="icon-xs"
-                      onClick={() => handleRemoveItem(item.productId)}
+                      onClick={() => handleRemoveItem(item.id)}
                       disabled={isLoggedIn ? removeApiItem.isPending : false}
                       className="text-muted-foreground hover:text-destructive"
                     >
@@ -396,7 +400,7 @@ export default function CartPage() {
                         size="icon-xs"
                         onClick={() =>
                           handleQuantityChange(
-                            item.productId,
+                            item.id,
                             item.quantity,
                             -1,
                           )
@@ -415,7 +419,7 @@ export default function CartPage() {
                         variant="ghost"
                         size="icon-xs"
                         onClick={() =>
-                          handleQuantityChange(item.productId, item.quantity, 1)
+                          handleQuantityChange(item.id, item.quantity, 1)
                         }
                         disabled={isLoggedIn ? updateApiItem.isPending : false}
                       >
