@@ -399,11 +399,7 @@ export default function CartPage() {
                         variant="ghost"
                         size="icon-xs"
                         onClick={() =>
-                          handleQuantityChange(
-                            item.id,
-                            item.quantity,
-                            -1,
-                          )
+                          handleQuantityChange(item.id, item.quantity, -1)
                         }
                         disabled={
                           item.quantity <= 1 ||

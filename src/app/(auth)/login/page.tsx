@@ -32,7 +32,7 @@ export default function LoginPage() {
         router.push("/");
         router.refresh();
       }
-    } catch (error) {
+    } catch (_error) {
       toast.error("An error occurred. Please try again.");
     } finally {
       setIsLoading(false);

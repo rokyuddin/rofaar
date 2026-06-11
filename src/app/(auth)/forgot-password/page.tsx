@@ -9,9 +9,9 @@ import { Input } from "@/components/atoms/input";
 import { Label } from "@/components/atoms/label";
 import { Logo } from "@/components/molecules/logo";
 import {
-  useForgotPassword,
+  useSendForgotPasswordOtp,
   useResetPassword,
-  useVerifyForgotOtp,
+  useVerifyForgotPasswordOtp,
 } from "@/hooks/use-auth";
 
 type Step = "phone" | "otp" | "reset";
@@ -25,8 +25,8 @@ export default function ForgotPasswordPage() {
   const [resetToken, setResetToken] = useState("");
   const router = useRouter();
 
-  const forgotPasswordMutation = useForgotPassword();
-  const verifyOtpMutation = useVerifyForgotOtp();
+  const forgotPasswordMutation = useSendForgotPasswordOtp();
+  const verifyOtpMutation = useVerifyForgotPasswordOtp();
   const resetPasswordMutation = useResetPassword();
 
   const handleSendOtp = async (e: React.FormEvent) => {

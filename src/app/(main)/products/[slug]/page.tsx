@@ -420,14 +420,14 @@ function ProductDetailPageInner({
       : 0;
 
   // Variant logic
-  const hasVariants = product.hasVariants && (product.variants?.length ?? 0) > 0;
+  const hasVariants =
+    product.hasVariants && (product.variants?.length ?? 0) > 0;
   const variants = product.variants ?? [];
 
   const selectedVariant = hasVariants
     ? variants.find((v) =>
-        Object.entries(selectedAttributes).every(
-          ([name, value]) =>
-            v.attributes.some((a) => a.name === name && a.value === value),
+        Object.entries(selectedAttributes).every(([name, value]) =>
+          v.attributes.some((a) => a.name === name && a.value === value),
         ),
       )
     : undefined;
@@ -440,7 +440,7 @@ function ProductDetailPageInner({
     ? selectedVariant.salePrice
     : selectedVariant?.basePrice
       ? selectedVariant.basePrice
-      : product.finalPrice ?? originalPrice;
+      : (product.finalPrice ?? originalPrice);
   const effectiveStock = selectedVariant?.stock ?? product.stock;
   const effectiveInStock = hasVariants ? effectiveStock > 0 : inStock;
 
@@ -450,17 +450,19 @@ function ProductDetailPageInner({
 
   const handleAddToCart = () => {
     if (!isLoggedIn) {
-      const variantId = selectedVariant?.id
-        ?? variants.find((v) => v.isDefault)?.id
-        ?? variants[0]?.id
-        ?? product.id;
+      const variantId =
+        selectedVariant?.id ??
+        variants.find((v) => v.isDefault)?.id ??
+        variants[0]?.id ??
+        product.id;
       guestAddToCart(product, variantId, quantity);
       toast.success("Added to cart");
       return;
     }
-    const variantId = selectedVariant?.id
-      ?? variants.find((v) => v.isDefault)?.id
-      ?? variants[0]?.id;
+    const variantId =
+      selectedVariant?.id ??
+      variants.find((v) => v.isDefault)?.id ??
+      variants[0]?.id;
     if (!variantId) return;
     addToCartApi.mutate(
       { variantId, quantity },

@@ -30,15 +30,14 @@ export function useSyncGuestItems() {
       // Sync cart
       if (cartItems.length > 0) {
         try {
-          const { data: res } = await apiClient.post<{ data: CartSyncResponse }>(
-            "/cart/sync",
-            {
-              items: cartItems.map((item) => ({
-                variantId: item.variantId,
-                quantity: item.quantity,
-              })),
-            },
-          );
+          const { data: res } = await apiClient.post<{
+            data: CartSyncResponse;
+          }>("/cart/sync", {
+            items: cartItems.map((item) => ({
+              variantId: item.variantId,
+              quantity: item.quantity,
+            })),
+          });
           const result = res.data;
           useCartStore.getState().clearCart();
           queryClient.invalidateQueries({ queryKey: ["cart"] });

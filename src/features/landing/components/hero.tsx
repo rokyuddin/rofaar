@@ -30,7 +30,9 @@ export function Hero({ banner }: HeroProps) {
             ) : (
               <>
                 Tools for the <br />
-                <span className="text-primary-foreground">Productive Believer</span>
+                <span className="text-primary-foreground">
+                  Productive Believer
+                </span>
               </>
             )}
           </h1>

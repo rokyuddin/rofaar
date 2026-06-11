@@ -79,9 +79,10 @@ export default function WishlistPage() {
       }
     } else {
       // Guest: remove from wishlist store, add to cart store
-      const variantId = item.product.variants?.find((v) => v.isDefault)?.id
-        ?? item.product.variants?.[0]?.id
-        ?? item.productId;
+      const variantId =
+        item.product.variants?.find((v) => v.isDefault)?.id ??
+        item.product.variants?.[0]?.id ??
+        item.productId;
       guestRemoveItem(item.productId);
       guestAddToCart(item.product, variantId, 1);
     }

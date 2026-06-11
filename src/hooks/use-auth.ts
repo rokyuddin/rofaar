@@ -1,23 +1,82 @@
+"use client";
+
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { apiClient } from "@/lib/api-client";
 import type { ApiResponse, AuthResponse, User } from "@/types/api";
 
+function getErrorMessage(error: unknown): string {
+  if (
+    error &&
+    typeof error === "object" &&
+    "response" in error &&
+    error.response &&
+    typeof error.response === "object" &&
+    "data" in error.response
+  ) {
+    const data = (error.response as { data: ApiResponse<unknown> }).data;
+    if (data?.message) return data.message;
+  }
+  if (error instanceof Error) return error.message;
+  return "Something went wrong";
+}
+
+// ─── OTP ─────────────────────────────────────────────────────────────────────
+
+export const useSendRegistrationOtp = () => {
+  return useMutation({
+    mutationFn: async (phone: string) => {
+      const { data } = await apiClient.post<ApiResponse<void>>(
+        "/auth/register/send-otp",
+        { phone },
+      );
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("OTP sent to your phone number.");
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error));
+    },
+  });
+};
+
+export const useVerifyRegistrationOtp = () => {
+  return useMutation({
+    mutationFn: async ({ phone, otp }: { phone: string; otp: string }) => {
+      const { data } = await apiClient.post<ApiResponse<{ token: string }>>(
+        "/auth/register/verify-otp",
+        { phone, otp },
+      );
+      return data;
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error));
+    },
+  });
+};
+
 // ─── Registration ────────────────────────────────────────────────────────────
 
-export const useRegister = () => {
+export const useCompleteRegistration = () => {
   return useMutation({
     mutationFn: async (payload: {
+      token: string;
       name: string;
-      phone: string;
+      email: string;
       password: string;
-      email?: string;
     }) => {
       const { data } = await apiClient.post<ApiResponse<AuthResponse>>(
-        "/auth/register",
+        "/auth/register/complete",
         payload,
       );
       return data;
+    },
+    onSuccess: () => {
+      toast.success("Registration completed successfully!");
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error));
     },
   });
 };
@@ -38,6 +97,72 @@ export const useLogin = () => {
         { phone, password },
       );
       return data;
+    },
+    onSuccess: () => {
+      toast.success("Welcome back!");
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error));
+    },
+  });
+};
+
+// ─── Forgot Password ───────────────────────────────────────────────────────
+
+export const useSendForgotPasswordOtp = () => {
+  return useMutation({
+    mutationFn: async (phone: string) => {
+      const { data } = await apiClient.post<ApiResponse<void>>(
+        "/auth/forgot-password",
+        { phone },
+      );
+      return data;
+    },
+    onSuccess: () => {
+      toast.success(
+        "If an account exists, a password reset OTP has been sent.",
+      );
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error));
+    },
+  });
+};
+
+export const useVerifyForgotPasswordOtp = () => {
+  return useMutation({
+    mutationFn: async ({ phone, otp }: { phone: string; otp: string }) => {
+      const { data } = await apiClient.post<
+        ApiResponse<{ resetToken: string }>
+      >("/auth/forgot-password/verify-otp", { phone, otp });
+      return data;
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error));
+    },
+  });
+};
+
+export const useResetPassword = () => {
+  return useMutation({
+    mutationFn: async ({
+      resetToken,
+      newPassword,
+    }: {
+      resetToken: string;
+      newPassword: string;
+    }) => {
+      const { data } = await apiClient.post<ApiResponse<void>>(
+        "/auth/forgot-password/reset",
+        { resetToken, newPassword },
+      );
+      return data;
+    },
+    onSuccess: () => {
+      toast.success("Password has been reset successfully.");
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error));
     },
   });
 };
@@ -68,6 +193,9 @@ export const useUpdateProfile = () => {
       queryClient.invalidateQueries({ queryKey: ["auth", "profile"] });
       toast.success("Profile updated");
     },
+    onError: (error) => {
+      toast.error(getErrorMessage(error));
+    },
   });
 };
 
@@ -84,65 +212,15 @@ export const useChangePassword = () => {
     }) => {
       const { data } = await apiClient.post<ApiResponse<void>>(
         "/auth/change-password",
-        {
-          oldPassword,
-          newPassword,
-        },
+        { oldPassword, newPassword },
       );
       return data;
     },
     onSuccess: () => {
       toast.success("Password changed successfully");
     },
-  });
-};
-
-export const useForgotPassword = () => {
-  return useMutation({
-    mutationFn: async (phone: string) => {
-      const { data } = await apiClient.post<ApiResponse<void>>(
-        "/auth/forgot-password",
-        { phone },
-      );
-      return data;
-    },
-  });
-};
-
-export const useVerifyForgotOtp = () => {
-  return useMutation({
-    mutationFn: async ({ phone, otp }: { phone: string; otp: string }) => {
-      const { data } = await apiClient.post<
-        ApiResponse<{ resetToken: string }>
-      >("/auth/forgot-password/verify-otp", {
-        phone,
-        otp,
-      });
-      return data;
-    },
-  });
-};
-
-export const useResetPassword = () => {
-  return useMutation({
-    mutationFn: async ({
-      resetToken,
-      newPassword,
-    }: {
-      resetToken: string;
-      newPassword: string;
-    }) => {
-      const { data } = await apiClient.post<ApiResponse<void>>(
-        "/auth/forgot-password/reset",
-        {
-          resetToken,
-          newPassword,
-        },
-      );
-      return data;
-    },
-    onSuccess: () => {
-      toast.success("Password reset successful");
+    onError: (error) => {
+      toast.error(getErrorMessage(error));
     },
   });
 };
@@ -154,10 +232,11 @@ export const useRefreshToken = () => {
     mutationFn: async (refreshToken: string) => {
       const { data } = await apiClient.post<
         ApiResponse<{ token: string; refreshToken: string }>
-      >("/auth/refresh", {
-        refreshToken,
-      });
+      >("/auth/refresh", { refreshToken });
       return data;
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error));
     },
   });
 };
@@ -179,6 +258,10 @@ export const useLogout = () => {
         localStorage.removeItem("token");
         localStorage.removeItem("refreshToken");
       }
+      toast.success("Logged out successfully");
+    },
+    onError: (error) => {
+      toast.error(getErrorMessage(error));
     },
   });
 };
